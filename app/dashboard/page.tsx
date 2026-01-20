@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
-import { collection, query, orderBy, onSnapshot, deleteDoc, doc, writeBatch, serverTimestamp, updateDoc, setDoc, where } from "firebase/firestore";
+import { collection, query, orderBy, onSnapshot, deleteDoc, doc, writeBatch, serverTimestamp, updateDoc, setDoc, addDoc, Timestamp } from "firebase/firestore";
 import { ref, deleteObject } from "firebase/storage";
 import { db, storage } from "@/lib/firebase";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,8 @@ import { toast } from "sonner";
 import { FileUpload } from "@/components/file-upload";
 import { FileList } from "@/components/file-list";
 import { FlashcardViewer } from "@/components/flashcard-viewer";
+import { PreStudyModal, type StudyMode, type CardLimit } from "@/components/pre-study-modal";
+import { getRatingColor } from "@/components/rating-buttons";
 
 export interface Course {
   id: string;
@@ -64,11 +66,44 @@ export interface RatingRecord {
   timeSpentMs: number;
 }
 
+interface StudySessionConfig {
+  mode: StudyMode;
+  limit: CardLimit;
+  sourceType: "all" | "course" | "file";
+  sourceId: string | null;
+}
+
 const COURSE_COLORS = [
   "#ef4444", "#f97316", "#f59e0b", "#84cc16", "#22c55e",
   "#14b8a6", "#06b6d4", "#3b82f6", "#6366f1", "#8b5cf6",
   "#a855f7", "#d946ef", "#ec4899", "#f43f5e",
 ];
+
+// Helper to calculate mastery percentage from flashcards
+function calculateMastery(cards: Flashcard[]): { percentage: number; color: string } {
+  if (cards.length === 0) return { percentage: 0, color: "#64748b" };
+  
+  const studiedCards = cards.filter((c) => c.ratingCount > 0);
+  if (studiedCards.length === 0) return { percentage: 0, color: "#64748b" };
+  
+  const avgRating = studiedCards.reduce((sum, c) => sum + (c.averageRating || 0), 0) / studiedCards.length;
+  const percentage = Math.round(((avgRating - 1) / 4) * 100);
+  
+  // Color based on mastery
+  if (percentage >= 80) return { percentage, color: "#22c55e" }; // Green
+  if (percentage >= 60) return { percentage, color: "#eab308" }; // Yellow
+  return { percentage, color: "#ef4444" }; // Red
+}
+
+// Shuffle array using Fisher-Yates
+function shuffleArray<T>(array: T[]): T[] {
+  const shuffled = [...array];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+}
 
 export default function DashboardPage() {
   const { user, loading, signOut } = useAuth();
@@ -80,10 +115,16 @@ export default function DashboardPage() {
   const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
   const [generating, setGenerating] = useState<string | null>(null);
   const [viewingFlashcards, setViewingFlashcards] = useState(false);
+  const [studySessionId, setStudySessionId] = useState<string | null>(null);
   const [showNewCourse, setShowNewCourse] = useState(false);
   const [newCourseName, setNewCourseName] = useState("");
   const [editingCourseId, setEditingCourseId] = useState<string | null>(null);
   const [editCourseName, setEditCourseName] = useState("");
+  
+  // Pre-study modal state
+  const [showPreStudyModal, setShowPreStudyModal] = useState(false);
+  const [studySessionConfig, setStudySessionConfig] = useState<StudySessionConfig | null>(null);
+  const [studyFlashcards, setStudyFlashcards] = useState<Flashcard[]>([]);
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -181,6 +222,29 @@ export default function DashboardPage() {
 
     return () => unsubscribe();
   }, [user]);
+
+  // Calculate course stats
+  const courseStats = useMemo(() => {
+    const stats: Record<string, { total: number; mastered: number; mastery: ReturnType<typeof calculateMastery> }> = {};
+    
+    courses.forEach((course) => {
+      const courseCards = flashcards.filter((f) => f.courseId === course.id);
+      stats[course.id] = {
+        total: courseCards.length,
+        mastered: courseCards.filter((c) => c.mastered).length,
+        mastery: calculateMastery(courseCards),
+      };
+    });
+    
+    // All files stats
+    stats["all"] = {
+      total: flashcards.length,
+      mastered: flashcards.filter((c) => c.mastered).length,
+      mastery: calculateMastery(flashcards),
+    };
+    
+    return stats;
+  }, [courses, flashcards]);
 
   const handleCreateCourse = async () => {
     if (!user || !newCourseName.trim()) return;
@@ -337,16 +401,189 @@ export default function DashboardPage() {
     }
   };
 
-  const handleMoveFile = async (fileId: string, newCourseId: string | null) => {
+  // Spaced repetition intervals (in days)
+  const REVIEW_INTERVALS: Record<number, number> = {
+    1: 1,    // Rating 1: Review in 1 day
+    2: 1,    // Rating 2: Review in 1 day  
+    3: 3,    // Rating 3: Review in 3 days
+    4: 7,    // Rating 4: Review in 7 days
+    5: 30,   // Rating 5: Review in 30 days
+  };
+
+  const handleRateFlashcard = async (cardId: string, rating: number, timeSpentMs: number) => {
     if (!user) return;
 
+    const flashcard = flashcards.find((f) => f.id === cardId);
+    if (!flashcard) return;
+
+    // Calculate new consecutive fives
+    let consecutiveFives = rating === 5 
+      ? (flashcard.consecutiveFives || 0) + 1 
+      : 0;
+
+    // Check for auto-mastery (3 consecutive 5s)
+    const mastered = consecutiveFives >= 3;
+
+    // Calculate new average
+    const totalRatings = (flashcard.ratingCount || 0) + 1;
+    const currentSum = (flashcard.averageRating || 0) * (flashcard.ratingCount || 0);
+    const newAverage = (currentSum + rating) / totalRatings;
+
+    // Calculate next review date
+    const nextReview = new Date();
+    nextReview.setDate(nextReview.getDate() + REVIEW_INTERVALS[rating]);
+
     try {
-      await updateDoc(doc(db, "users", user.uid, "files", fileId), {
-        courseId: newCourseId,
+      // Update flashcard document
+      await updateDoc(doc(db, "users", user.uid, "flashcards", cardId), {
+        latestRating: rating,
+        ratingCount: totalRatings,
+        consecutiveFives,
+        averageRating: newAverage,
+        mastered,
+        masteredAt: mastered ? serverTimestamp() : flashcard.masteredAt,
+        nextReviewAt: Timestamp.fromDate(nextReview),
       });
-      toast.success("File moved");
+
+      // Store rating in history
+      await addDoc(collection(db, "users", user.uid, "ratings"), {
+        flashcardId: cardId,
+        fileId: flashcard.fileId,
+        courseId: flashcard.courseId,
+        rating,
+        timestamp: serverTimestamp(),
+        sessionId: studySessionId || `session_${Date.now()}`,
+        timeSpentMs,
+      });
+
+      // Show mastery notification
+      if (mastered && !flashcard.mastered) {
+        toast.success("🏆 Card mastered! Rated 5 three times in a row!");
+      }
     } catch (error) {
-      toast.error("Failed to move file");
+      console.error("Failed to save rating:", error);
+      toast.error("Failed to save rating");
+      throw error;
+    }
+  };
+
+  // Prepare flashcards for study based on mode
+  const prepareStudyFlashcards = (
+    cards: Flashcard[],
+    mode: StudyMode,
+    limit: CardLimit
+  ): Flashcard[] => {
+    // Filter out mastered cards
+    let studyCards = cards.filter((c) => !c.mastered);
+    
+    if (mode === "smart") {
+      // Smart mode: Prioritize weak cards and due for review
+      const now = new Date();
+      
+      // Categorize cards
+      const dueForReview = studyCards.filter((c) => c.nextReviewAt && new Date(c.nextReviewAt) <= now);
+      const weakCards = studyCards.filter((c) => c.latestRating !== null && c.latestRating <= 2);
+      const neverStudied = studyCards.filter((c) => c.latestRating === null);
+      const otherCards = studyCards.filter(
+        (c) => 
+          !dueForReview.includes(c) && 
+          !weakCards.includes(c) && 
+          !neverStudied.includes(c)
+      );
+      
+      // Build prioritized queue: due for review → weak → never studied → others
+      // Each category is shuffled internally
+      studyCards = [
+        ...shuffleArray(dueForReview),
+        ...shuffleArray(weakCards.filter((c) => !dueForReview.includes(c))),
+        ...shuffleArray(neverStudied),
+        ...shuffleArray(otherCards),
+      ];
+    } else {
+      // Study All mode: Random shuffle
+      studyCards = shuffleArray(studyCards);
+    }
+    
+    // Apply limit
+    if (limit !== "all" && studyCards.length > limit) {
+      studyCards = studyCards.slice(0, limit);
+    }
+    
+    return studyCards;
+  };
+
+  // Open pre-study modal for different sources
+  const openStudyModal = (sourceType: "all" | "course" | "file", sourceId: string | null) => {
+    setStudySessionConfig({
+      mode: "smart",
+      limit: "all",
+      sourceType,
+      sourceId,
+    });
+    setShowPreStudyModal(true);
+  };
+
+  // Start study session
+  const startStudySession = (mode: StudyMode, limit: CardLimit) => {
+    if (!studySessionConfig) return;
+    
+    let sourceCards: Flashcard[];
+    
+    if (studySessionConfig.sourceType === "file" && studySessionConfig.sourceId) {
+      sourceCards = flashcards.filter((f) => f.fileId === studySessionConfig.sourceId);
+    } else if (studySessionConfig.sourceType === "course" && studySessionConfig.sourceId) {
+      sourceCards = flashcards.filter((f) => f.courseId === studySessionConfig.sourceId);
+    } else {
+      // All files
+      sourceCards = selectedCourseId 
+        ? flashcards.filter((f) => f.courseId === selectedCourseId)
+        : flashcards;
+    }
+    
+    const preparedCards = prepareStudyFlashcards(sourceCards, mode, limit);
+    
+    if (preparedCards.length === 0) {
+      toast.info("No cards available to study. All cards may be mastered!");
+      setShowPreStudyModal(false);
+      return;
+    }
+    
+    const sessionId = `session_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+    setStudySessionId(sessionId);
+    setStudyFlashcards(preparedCards);
+    setShowPreStudyModal(false);
+    setViewingFlashcards(true);
+  };
+
+  // Get flashcards for modal display
+  const getModalFlashcards = (): Flashcard[] => {
+    if (!studySessionConfig) return [];
+    
+    if (studySessionConfig.sourceType === "file" && studySessionConfig.sourceId) {
+      return flashcards.filter((f) => f.fileId === studySessionConfig.sourceId);
+    } else if (studySessionConfig.sourceType === "course" && studySessionConfig.sourceId) {
+      return flashcards.filter((f) => f.courseId === studySessionConfig.sourceId);
+    } else {
+      return selectedCourseId 
+        ? flashcards.filter((f) => f.courseId === selectedCourseId)
+        : flashcards;
+    }
+  };
+
+  // Get modal title
+  const getModalTitle = (): string => {
+    if (!studySessionConfig) return "Study Flashcards";
+    
+    if (studySessionConfig.sourceType === "file" && studySessionConfig.sourceId) {
+      const file = files.find((f) => f.id === studySessionConfig.sourceId);
+      return `Study: ${file?.name || "File"}`;
+    } else if (studySessionConfig.sourceType === "course" && studySessionConfig.sourceId) {
+      const course = courses.find((c) => c.id === studySessionConfig.sourceId);
+      return `Study: ${course?.name || "Course"}`;
+    } else {
+      return selectedCourseId 
+        ? `Study: ${courses.find((c) => c.id === selectedCourseId)?.name || "Course"}`
+        : "Study All Flashcards";
     }
   };
 
@@ -372,16 +609,21 @@ export default function DashboardPage() {
     ? files.filter((f) => f.courseId === selectedCourseId)
     : files;
 
-  const fileFlashcards = selectedFileId
-    ? flashcards.filter((f) => f.fileId === selectedFileId)
-    : flashcards;
-
   const selectedCourse = courses.find((c) => c.id === selectedCourseId);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
       {/* Background pattern */}
       <div className="fixed inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiMyMDIwMjAiIGZpbGwtb3BhY2l0eT0iMC40Ij48cGF0aCBkPSJNMzYgMzRoLTJ2LTRoMnY0em0wLTZoLTJ2LTRoMnY0em0tNiA2aC0ydi00aDJ2NHptMC02aC0ydi00aDJ2NHptLTYgNmgtMnYtNGgydjR6bTAtNmgtMnYtNGgydjR6Ii8+PC9nPjwvZz48L3N2Zz4=')] opacity-20 pointer-events-none" />
+
+      {/* Pre-study modal */}
+      <PreStudyModal
+        open={showPreStudyModal}
+        onClose={() => setShowPreStudyModal(false)}
+        onStart={startStudySession}
+        title={getModalTitle()}
+        flashcards={getModalFlashcards()}
+      />
 
       {/* Header */}
       <header className="relative z-10 border-b border-slate-700/50 bg-slate-900/50 backdrop-blur-sm">
@@ -428,6 +670,8 @@ export default function DashboardPage() {
                 onClick={() => {
                   setViewingFlashcards(false);
                   setSelectedFileId(null);
+                  setStudyFlashcards([]);
+                  setStudySessionId(null);
                 }}
                 className="text-slate-400 hover:text-white"
               >
@@ -448,10 +692,14 @@ export default function DashboardPage() {
               </Button>
             </div>
             <FlashcardViewer
-              flashcards={fileFlashcards}
+              flashcards={studyFlashcards}
+              showSource={studyFlashcards.length > 0 && new Set(studyFlashcards.map(f => f.fileId)).size > 1}
+              onRate={handleRateFlashcard}
               onClose={() => {
                 setViewingFlashcards(false);
                 setSelectedFileId(null);
+                setStudyFlashcards([]);
+                setStudySessionId(null);
               }}
             />
           </div>
@@ -477,28 +725,60 @@ export default function DashboardPage() {
                 </CardHeader>
                 <CardContent className="space-y-1">
                   {/* All Files option */}
-                  <button
-                    onClick={() => setSelectedCourseId(null)}
-                    className={`w-full text-left px-3 py-2 rounded-lg transition-colors flex items-center gap-2 ${
-                      selectedCourseId === null
-                        ? "bg-amber-500/20 text-amber-400"
-                        : "text-slate-300 hover:bg-slate-700"
-                    }`}
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                    </svg>
-                    All Files
-                    <span className="ml-auto text-xs text-slate-500">{files.length}</span>
-                  </button>
+                  <div className="group">
+                    <button
+                      onClick={() => setSelectedCourseId(null)}
+                      className={`w-full text-left px-3 py-2 rounded-lg transition-colors flex items-center gap-2 ${
+                        selectedCourseId === null
+                          ? "bg-amber-500/20 text-amber-400"
+                          : "text-slate-300 hover:bg-slate-700"
+                      }`}
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                      </svg>
+                      <span className="flex-1">All Files</span>
+                      <span className="text-xs text-slate-500">{files.length}</span>
+                    </button>
+                    {/* Study button for All Files */}
+                    {courseStats["all"]?.total > 0 && (
+                      <div className="flex items-center gap-2 px-3 py-1">
+                        <div className="flex-1 flex items-center gap-2">
+                          {courseStats["all"].mastery.percentage > 0 && (
+                            <span
+                              className="text-xs font-medium"
+                              style={{ color: courseStats["all"].mastery.color }}
+                            >
+                              {courseStats["all"].mastery.percentage}%
+                            </span>
+                          )}
+                          <span className="text-xs text-slate-500">
+                            {courseStats["all"].total} cards
+                          </span>
+                        </div>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openStudyModal("all", null);
+                          }}
+                          className="text-xs px-2 py-1 rounded bg-amber-500/20 text-amber-400 hover:bg-amber-500/30 transition-colors"
+                        >
+                          Study
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="my-2 border-t border-slate-700" />
 
                   {/* Course list */}
                   {courses.map((course) => {
                     const courseFileCount = files.filter((f) => f.courseId === course.id).length;
+                    const stats = courseStats[course.id];
                     const isEditing = editingCourseId === course.id;
 
                     return (
-                      <div key={course.id} className="group relative">
+                      <div key={course.id} className="group">
                         {isEditing ? (
                           <div className="flex items-center gap-1 px-2 py-1">
                             <div
@@ -530,50 +810,85 @@ export default function DashboardPage() {
                             </Button>
                           </div>
                         ) : (
-                          <button
-                            onClick={() => setSelectedCourseId(course.id)}
-                            className={`w-full text-left px-3 py-2 rounded-lg transition-colors flex items-center gap-2 ${
-                              selectedCourseId === course.id
-                                ? "bg-amber-500/20 text-amber-400"
-                                : "text-slate-300 hover:bg-slate-700"
-                            }`}
-                          >
-                            <div
-                              className="w-3 h-3 rounded-full flex-shrink-0"
-                              style={{ backgroundColor: course.color }}
-                            />
-                            <span className="truncate">{course.name}</span>
-                            <span className="ml-auto text-xs text-slate-500">{courseFileCount}</span>
-                          </button>
-                        )}
+                          <>
+                            <div className="relative">
+                              <button
+                                onClick={() => setSelectedCourseId(course.id)}
+                                className={`w-full text-left px-3 py-2 rounded-lg transition-colors flex items-center gap-2 ${
+                                  selectedCourseId === course.id
+                                    ? "bg-amber-500/20 text-amber-400"
+                                    : "text-slate-300 hover:bg-slate-700"
+                                }`}
+                              >
+                                <div
+                                  className="w-3 h-3 rounded-full flex-shrink-0"
+                                  style={{ backgroundColor: course.color }}
+                                />
+                                <span className="truncate flex-1">{course.name}</span>
+                                <span className="text-xs text-slate-500">{courseFileCount}</span>
+                              </button>
 
-                        {/* Course actions (show on hover) */}
-                        {!isEditing && (
-                          <div className="absolute right-1 top-1/2 -translate-y-1/2 hidden group-hover:flex items-center gap-1">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setEditingCourseId(course.id);
-                                setEditCourseName(course.name);
-                              }}
-                              className="p-1 text-slate-500 hover:text-slate-300"
-                            >
-                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                              </svg>
-                            </button>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDeleteCourse(course.id);
-                              }}
-                              className="p-1 text-slate-500 hover:text-red-400"
-                            >
-                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                              </svg>
-                            </button>
-                          </div>
+                              {/* Course actions (show on hover) */}
+                              <div className="absolute right-1 top-1/2 -translate-y-1/2 hidden group-hover:flex items-center gap-1 bg-slate-800 rounded px-1">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setEditingCourseId(course.id);
+                                    setEditCourseName(course.name);
+                                  }}
+                                  className="p-1 text-slate-500 hover:text-slate-300"
+                                >
+                                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                  </svg>
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDeleteCourse(course.id);
+                                  }}
+                                  className="p-1 text-slate-500 hover:text-red-400"
+                                >
+                                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                  </svg>
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Course study stats & button */}
+                            {stats?.total > 0 && (
+                              <div className="flex items-center gap-2 px-3 py-1">
+                                <div className="flex-1 flex items-center gap-2">
+                                  {stats.mastery.percentage > 0 && (
+                                    <span
+                                      className="text-xs font-medium"
+                                      style={{ color: stats.mastery.color }}
+                                    >
+                                      {stats.mastery.percentage}%
+                                    </span>
+                                  )}
+                                  <span className="text-xs text-slate-500">
+                                    {stats.total} cards
+                                  </span>
+                                  {stats.mastered > 0 && (
+                                    <span className="text-xs text-emerald-400">
+                                      🏆 {stats.mastered}
+                                    </span>
+                                  )}
+                                </div>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    openStudyModal("course", course.id);
+                                  }}
+                                  className="text-xs px-2 py-1 rounded bg-amber-500/20 text-amber-400 hover:bg-amber-500/30 transition-colors"
+                                >
+                                  Study
+                                </button>
+                              </div>
+                            )}
+                          </>
                         )}
                       </div>
                     );
@@ -688,8 +1003,7 @@ export default function DashboardPage() {
                     onDeleteFile={handleDeleteFile}
                     onRenameFile={handleRenameFile}
                     onViewFlashcards={(fileId) => {
-                      setSelectedFileId(fileId);
-                      setViewingFlashcards(true);
+                      openStudyModal("file", fileId);
                     }}
                     flashcardCounts={flashcards.reduce(
                       (acc, fc) => {
@@ -705,49 +1019,108 @@ export default function DashboardPage() {
 
             {/* Stats sidebar */}
             <div className="w-64 flex-shrink-0 space-y-6">
-              <Card className="bg-slate-800/50 border-slate-700">
-                <CardHeader>
-                  <CardTitle className="text-white text-lg">Quick Stats</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex justify-between items-center">
-                    <span className="text-slate-400">Total Files</span>
-                    <span className="text-2xl font-bold text-white">{files.length}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-slate-400">Courses</span>
-                    <span className="text-2xl font-bold text-white">{courses.length}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-slate-400">Flashcards</span>
-                    <span className="text-2xl font-bold text-amber-400">
-                      {flashcards.length}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-slate-400">Ready Files</span>
-                    <span className="text-2xl font-bold text-emerald-400">
-                      {files.filter((f) => f.status === "ready").length}
-                    </span>
-                  </div>
-                </CardContent>
-              </Card>
+              {/* Context-aware stats based on selected course */}
+              {(() => {
+                const currentStats = selectedCourseId 
+                  ? courseStats[selectedCourseId] 
+                  : courseStats["all"];
+                const currentFlashcards = selectedCourseId
+                  ? flashcards.filter(f => f.courseId === selectedCourseId)
+                  : flashcards;
+                const currentFiles = selectedCourseId
+                  ? files.filter(f => f.courseId === selectedCourseId)
+                  : files;
 
-              {flashcards.length > 0 && (
-                <Card className="bg-slate-800/50 border-slate-700">
-                  <CardHeader>
-                    <CardTitle className="text-white text-lg">Study</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <Button
-                      onClick={() => setViewingFlashcards(true)}
-                      className="w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-slate-900 font-semibold"
-                    >
-                      Review All Flashcards ({flashcards.length})
-                    </Button>
-                  </CardContent>
-                </Card>
-              )}
+                return (
+                  <>
+                    <Card className="bg-slate-800/50 border-slate-700">
+                      <CardHeader>
+                        <CardTitle className="text-white text-lg">
+                          {selectedCourseId ? `${selectedCourse?.name} Stats` : "Quick Stats"}
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div className="flex justify-between items-center">
+                          <span className="text-slate-400">Files</span>
+                          <span className="text-2xl font-bold text-white">{currentFiles.length}</span>
+                        </div>
+                        {!selectedCourseId && (
+                          <div className="flex justify-between items-center">
+                            <span className="text-slate-400">Courses</span>
+                            <span className="text-2xl font-bold text-white">{courses.length}</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between items-center">
+                          <span className="text-slate-400">Flashcards</span>
+                          <span className="text-2xl font-bold text-amber-400">
+                            {currentFlashcards.length}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-slate-400">Mastered</span>
+                          <span className="text-2xl font-bold text-emerald-400">
+                            {currentFlashcards.filter((f) => f.mastered).length}
+                          </span>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    {currentFlashcards.length > 0 && (
+                      <Card className="bg-slate-800/50 border-slate-700">
+                        <CardHeader>
+                          <CardTitle className="text-white text-lg">Study</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                          <Button
+                            onClick={() => openStudyModal(selectedCourseId ? "course" : "all", selectedCourseId)}
+                            className="w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-slate-900 font-semibold"
+                          >
+                            🧠 Smart Study
+                          </Button>
+                          <p className="text-xs text-slate-500 text-center">
+                            Prioritizes weak cards & due for review
+                          </p>
+                        </CardContent>
+                      </Card>
+                    )}
+
+                    {/* Progress - context aware */}
+                    {currentStats?.total > 0 && currentStats.mastery.percentage > 0 && (
+                      <Card className="bg-slate-800/50 border-slate-700">
+                        <CardHeader>
+                          <CardTitle className="text-white text-lg">
+                            {selectedCourseId ? "Course Progress" : "Overall Progress"}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                          <div className="text-center">
+                            <span
+                              className="text-4xl font-bold"
+                              style={{ color: currentStats.mastery.color }}
+                            >
+                              {currentStats.mastery.percentage}%
+                            </span>
+                            <p className="text-sm text-slate-400 mt-1">Mastery</p>
+                          </div>
+                          <div className="w-full h-3 bg-slate-700 rounded-full overflow-hidden">
+                            <div
+                              className="h-full transition-all duration-500"
+                              style={{
+                                width: `${currentStats.mastery.percentage}%`,
+                                backgroundColor: currentStats.mastery.color,
+                              }}
+                            />
+                          </div>
+                          <div className="flex justify-between text-xs text-slate-400">
+                            <span>{currentStats.mastered} mastered</span>
+                            <span>{currentStats.total - currentStats.mastered} remaining</span>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
+                  </>
+                );
+              })()}
             </div>
           </div>
         )}
