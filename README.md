@@ -1,36 +1,124 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Collate - AI Study Assistant
 
-## Getting Started
+Upload PDFs and generate flashcards with AI to study smarter.
 
-First, run the development server:
+## Features
+
+- 📄 Upload PDF documents
+- 🤖 AI-powered flashcard generation (Claude)
+- 🎴 Interactive flashcard study mode
+- 🔐 Firebase authentication
+
+## Quick Start
+
+### 1. Set up Firebase
+
+1. Go to [Firebase Console](https://console.firebase.google.com/)
+2. Create a new project (or use existing)
+3. Enable **Authentication**:
+   - Go to Authentication → Sign-in method
+   - Enable **Email/Password**
+4. Enable **Firestore Database**:
+   - Go to Firestore Database → Create database
+   - Start in **test mode** (for development)
+5. Enable **Storage**:
+   - Go to Storage → Get started
+   - Start in **test mode** (for development)
+6. Get your config:
+   - Go to Project Settings → General → Your apps
+   - Click "Add app" → Web
+   - Copy the config values
+
+### 2. Set up Anthropic API
+
+1. Go to [Anthropic Console](https://console.anthropic.com/)
+2. Create an API key
+3. Copy the key
+
+### 3. Configure Environment
+
+Create a `.env.local` file in the project root:
+
+```bash
+# Firebase Configuration
+NEXT_PUBLIC_FIREBASE_API_KEY=your_api_key
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_project_id
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your_project.appspot.com
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
+NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
+
+# Anthropic API Key
+ANTHROPIC_API_KEY=your_anthropic_api_key
+```
+
+### 4. Run the App
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Usage
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. **Sign up** with email/password
+2. **Upload** a PDF document
+3. Wait for text extraction to complete
+4. Click **Generate** to create flashcards
+5. Click **Study** to review flashcards
 
-## Learn More
+## Firebase Security Rules (Production)
 
-To learn more about Next.js, take a look at the following resources:
+For production, update your Firestore rules:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```javascript
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      
+      match /files/{fileId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      
+      match /flashcards/{flashcardId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+  }
+}
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+And Storage rules:
 
-## Deploy on Vercel
+```javascript
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /users/{userId}/files/{allPaths=**} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+  }
+}
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Tech Stack
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- **Framework**: Next.js 14 (App Router)
+- **Styling**: Tailwind CSS + shadcn/ui
+- **Auth & Database**: Firebase
+- **AI**: Anthropic Claude
+- **PDF Parsing**: pdf-parse
+
+## MVP Limitations
+
+This is an MVP with intentional simplifications:
+
+- PDF only (no DOCX/PPTX)
+- No text chunking (full text sent to AI)
+- No storage quotas
+- Synchronous processing
+
+These can be enhanced in future iterations.
