@@ -263,10 +263,7 @@ export function FlashcardFormModal({
                     {courses.map((course) => (
                       <SelectItem key={`course:${course.id}`} value={`course:${course.id}`} className="rounded-lg">
                         <div className="flex items-center gap-2">
-                          <div
-                            className="w-3 h-3 rounded-full"
-                            style={{ backgroundColor: course.color }}
-                          />
+                          <span className="text-base">{course.emoji || "📚"}</span>
                           {course.name}
                         </div>
                       </SelectItem>

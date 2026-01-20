@@ -4,8 +4,7 @@ import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
 import { collection, query, orderBy, onSnapshot, deleteDoc, doc, writeBatch, serverTimestamp, updateDoc, setDoc, addDoc, Timestamp, getDocs, where } from "firebase/firestore";
-import { ref, deleteObject } from "firebase/storage";
-import { db, storage } from "@/lib/firebase";
+import { db } from "@/lib/firebase";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -14,17 +13,32 @@ import { FileUpload } from "@/components/file-upload";
 import { FileList } from "@/components/file-list";
 import { FlashcardViewer } from "@/components/flashcard-viewer";
 import { PreStudyModal, type StudyMode, type CardLimit } from "@/components/pre-study-modal";
-import { getRatingColor } from "@/components/rating-buttons";
 import { FlashcardFormModal, type FlashcardFormData } from "@/components/flashcard-form-modal";
 import { DeckFormModal, type DeckFormData } from "@/components/deck-form-modal";
 import { DeleteConfirmModal } from "@/components/delete-confirm-modal";
+import { DeleteCourseModal } from "@/components/delete-course-modal";
+import { 
+  deleteCourseWithCascade, 
+  deleteFileWithCascade,
+  deleteDeckWithCascade, 
+  restoreDeletedData
+} from "@/lib/cascading-delete";
 
 export interface Course {
   id: string;
   name: string;
   color: string;
+  emoji: string;
   createdAt: Date;
 }
+
+// Popular emojis for course selection
+const COURSE_EMOJIS = [
+  "📚", "📖", "📝", "✏️", "🎓", "💡", "🧠", "🔬", "🧪", "🔭",
+  "📐", "📊", "💻", "🖥️", "🌐", "🎨", "🎭", "🎵", "🏛️", "⚖️",
+  "💼", "📈", "🏥", "💊", "🌿", "🌍", "🗺️", "📷", "✈️", "🚀",
+  "⚽", "🏀", "🎯", "♟️", "🧩", "🔧", "⚡", "🔥", "❤️", "⭐",
+];
 
 export interface FileDocument {
   id: string;
@@ -158,8 +172,12 @@ export default function DashboardPage() {
   const [studySessionId, setStudySessionId] = useState<string | null>(null);
   const [showNewCourse, setShowNewCourse] = useState(false);
   const [newCourseName, setNewCourseName] = useState("");
+  const [newCourseEmoji, setNewCourseEmoji] = useState("📚");
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [editingCourseId, setEditingCourseId] = useState<string | null>(null);
   const [editCourseName, setEditCourseName] = useState("");
+  const [editCourseEmoji, setEditCourseEmoji] = useState("");
+  const [showEditEmojiPicker, setShowEditEmojiPicker] = useState(false);
   
   // Pre-study modal state
   const [showPreStudyModal, setShowPreStudyModal] = useState(false);
@@ -178,6 +196,9 @@ export default function DashboardPage() {
   
   // Delete confirm modal state
   const [deleteTarget, setDeleteTarget] = useState<{ type: "flashcard" | "deck"; id: string; preview: string } | null>(null);
+  
+  // Delete course modal state
+  const [deletingCourse, setDeletingCourse] = useState<Course | null>(null);
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -201,6 +222,7 @@ export default function DashboardPage() {
           id: doc.id,
           name: data.name,
           color: data.color,
+          emoji: data.emoji || "📚",
           createdAt: data.createdAt?.toDate() || new Date(),
         });
       });
@@ -356,11 +378,14 @@ export default function DashboardPage() {
       await setDoc(doc(db, "users", user.uid, "courses", courseId), {
         name: newCourseName.trim(),
         color: gradientClass,
+        emoji: newCourseEmoji,
         createdAt: serverTimestamp(),
       });
 
       setNewCourseName("");
+      setNewCourseEmoji("📚");
       setShowNewCourse(false);
+      setShowEmojiPicker(false);
       toast.success("Course created!");
     } catch (error) {
       toast.error("Failed to create course");
@@ -373,32 +398,64 @@ export default function DashboardPage() {
     try {
       await updateDoc(doc(db, "users", user.uid, "courses", courseId), {
         name: editCourseName.trim(),
+        emoji: editCourseEmoji,
       });
       setEditingCourseId(null);
       setEditCourseName("");
-      toast.success("Course renamed!");
+      setEditCourseEmoji("");
+      setShowEditEmojiPicker(false);
+      toast.success("Course updated!");
     } catch (error) {
-      toast.error("Failed to rename course");
+      toast.error("Failed to update course");
     }
   };
 
-  const handleDeleteCourse = async (courseId: string) => {
-    if (!user) return;
-
-    const courseFiles = files.filter((f) => f.courseId === courseId);
-    if (courseFiles.length > 0) {
-      toast.error("Cannot delete course with files. Move or delete files first.");
-      return;
+  // Open delete course confirmation modal
+  const handleDeleteCourseClick = (courseId: string) => {
+    const course = courses.find((c) => c.id === courseId);
+    if (course) {
+      setDeletingCourse(course);
     }
+  };
+
+  // Confirm and execute course deletion with cascading
+  const handleConfirmDeleteCourse = async () => {
+    if (!user || !deletingCourse) return;
 
     try {
-      await deleteDoc(doc(db, "users", user.uid, "courses", courseId));
-      if (selectedCourseId === courseId) {
+      await deleteCourseWithCascade(
+        user.uid,
+        deletingCourse.id,
+        deletingCourse,
+        files,
+        flashcards
+      );
+      
+      if (selectedCourseId === deletingCourse.id) {
         setSelectedCourseId(null);
       }
-      toast.success("Course deleted!");
+      
+      setDeletingCourse(null);
+      
+      // Show undo toast
+      toast.success("Course deleted", {
+        action: {
+          label: "Undo",
+          onClick: async () => {
+            const restored = await restoreDeletedData(user.uid);
+            if (restored) {
+              toast.success("Course restored!");
+            } else {
+              toast.error("Could not restore - undo window expired");
+            }
+          },
+        },
+        duration: 10000, // 10 seconds
+      });
     } catch (error) {
+      console.error("Delete failed:", error);
       toast.error("Failed to delete course");
+      setDeletingCourse(null);
     }
   };
 
@@ -531,20 +588,35 @@ export default function DashboardPage() {
   const handleDeleteDeck = async (deckId: string) => {
     if (!user) return;
 
-    // Check if deck has flashcards
-    const deckCards = flashcards.filter(f => f.deckId === deckId);
-    if (deckCards.length > 0) {
-      toast.error("Cannot delete deck with flashcards. Delete or move cards first.");
-      return;
-    }
+    const deck = decks.find(d => d.id === deckId);
+    if (!deck) return;
 
-    await deleteDoc(doc(db, "users", user.uid, "decks", deckId));
-    
-    if (selectedDeckId === deckId) {
-      setSelectedDeckId(null);
+    try {
+      await deleteDeckWithCascade(user.uid, deckId, deck, flashcards);
+      
+      if (selectedDeckId === deckId) {
+        setSelectedDeckId(null);
+      }
+      
+      // Show undo toast
+      toast.success("Deck deleted", {
+        action: {
+          label: "Undo",
+          onClick: async () => {
+            const restored = await restoreDeletedData(user.uid);
+            if (restored) {
+              toast.success("Deck restored!");
+            } else {
+              toast.error("Could not restore - undo window expired");
+            }
+          },
+        },
+        duration: 10000,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to delete deck";
+      toast.error(message);
     }
-    
-    toast.success("Deck deleted!");
   };
 
   // ============ DELETE CONFIRMATION HANDLER ============
@@ -628,16 +700,23 @@ export default function DashboardPage() {
     if (!file) return;
 
     try {
-      // Delete from Storage
-      const storageRef = ref(storage, file.storagePath);
-      await deleteObject(storageRef).catch(() => {
-        // File might not exist in storage, continue anyway
+      await deleteFileWithCascade(user.uid, fileId, file, flashcards);
+      
+      // Show undo toast
+      toast.success("File deleted", {
+        action: {
+          label: "Undo",
+          onClick: async () => {
+            const restored = await restoreDeletedData(user.uid);
+            if (restored) {
+              toast.success("File restored!");
+            } else {
+              toast.error("Could not restore - undo window expired");
+            }
+          },
+        },
+        duration: 10000,
       });
-
-      // Delete from Firestore
-      await deleteDoc(doc(db, "users", user.uid, "files", fileId));
-
-      toast.success("File deleted");
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to delete file";
       toast.error(message);
@@ -941,6 +1020,16 @@ export default function DashboardPage() {
         itemPreview={deleteTarget?.preview}
       />
 
+      {/* Delete course modal */}
+      <DeleteCourseModal
+        open={!!deletingCourse}
+        onClose={() => setDeletingCourse(null)}
+        onConfirm={handleConfirmDeleteCourse}
+        course={deletingCourse}
+        files={files}
+        flashcards={flashcards}
+      />
+
       {/* Header */}
       <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-[#D7CFC0]">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
@@ -1099,31 +1188,77 @@ export default function DashboardPage() {
                     return (
                       <div key={course.id} className="group">
                         {isEditing ? (
-                          <div className="flex items-center gap-2 px-3 py-2">
-                            <div className={`w-8 h-8 rounded-lg ${gradientClass}`} />
-                            <Input
-                              value={editCourseName}
-                              onChange={(e) => setEditCourseName(e.target.value)}
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter") handleRenameCourse(course.id);
-                                if (e.key === "Escape") {
+                          <div className="px-3 py-2 space-y-2">
+                            <div className="flex items-center gap-2">
+                              <div className="relative">
+                                <button
+                                  onClick={() => setShowEditEmojiPicker(!showEditEmojiPicker)}
+                                  className={`w-10 h-10 rounded-xl ${gradientClass} flex items-center justify-center text-xl hover:scale-105 transition-transform`}
+                                >
+                                  {editCourseEmoji}
+                                </button>
+                                {showEditEmojiPicker && (
+                                  <div className="absolute top-12 left-0 z-50 p-3 bg-white rounded-2xl shadow-soft-lg border border-[#EBE4D6] w-64">
+                                    <div className="grid grid-cols-8 gap-1">
+                                      {COURSE_EMOJIS.map((emoji) => (
+                                        <button
+                                          key={emoji}
+                                          onClick={() => {
+                                            setEditCourseEmoji(emoji);
+                                            setShowEditEmojiPicker(false);
+                                          }}
+                                          className={`w-7 h-7 rounded-lg hover:bg-[#F5F1E8] flex items-center justify-center transition-colors ${
+                                            editCourseEmoji === emoji ? "bg-[#7CB342]/20" : ""
+                                          }`}
+                                        >
+                                          {emoji}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                              <Input
+                                value={editCourseName}
+                                onChange={(e) => setEditCourseName(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") handleRenameCourse(course.id);
+                                  if (e.key === "Escape") {
+                                    setEditingCourseId(null);
+                                    setEditCourseName("");
+                                    setEditCourseEmoji("");
+                                    setShowEditEmojiPicker(false);
+                                  }
+                                }}
+                                className="h-10 text-sm rounded-xl border-[#D7CFC0] focus:border-[#7CB342] focus:ring-[#7CB342]/20"
+                                autoFocus
+                              />
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => handleRenameCourse(course.id)}
+                                className="h-10 w-10 p-0 rounded-full text-[#7CB342] hover:bg-[#7CB342]/10"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                </svg>
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => {
                                   setEditingCourseId(null);
                                   setEditCourseName("");
-                                }
-                              }}
-                              className="h-8 text-sm rounded-xl border-[#D7CFC0] focus:border-[#7CB342] focus:ring-[#7CB342]/20"
-                              autoFocus
-                            />
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => handleRenameCourse(course.id)}
-                              className="h-8 w-8 p-0 rounded-full text-[#7CB342] hover:bg-[#7CB342]/10"
-                            >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                              </svg>
-                            </Button>
+                                  setEditCourseEmoji("");
+                                  setShowEditEmojiPicker(false);
+                                }}
+                                className="h-10 w-10 p-0 rounded-full text-[#8B7355] hover:bg-[#EBE4D6]"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                              </Button>
+                            </div>
                           </div>
                         ) : (
                           <>
@@ -1139,7 +1274,9 @@ export default function DashboardPage() {
                                     : "text-[#4A3426] hover:bg-[#F5F1E8]"
                                 }`}
                               >
-                                <div className={`w-10 h-10 rounded-xl ${gradientClass} shadow-sm`} />
+                                <div className={`w-10 h-10 rounded-xl ${gradientClass} shadow-sm flex items-center justify-center text-xl`}>
+                                  {course.emoji}
+                                </div>
                                 <div className="flex-1 min-w-0">
                                   <span className="font-medium block truncate">{course.name}</span>
                                   <span className="text-xs text-[#8B7355]">{courseFileCount} files</span>
@@ -1153,6 +1290,7 @@ export default function DashboardPage() {
                                     e.stopPropagation();
                                     setEditingCourseId(course.id);
                                     setEditCourseName(course.name);
+                                    setEditCourseEmoji(course.emoji);
                                   }}
                                   className="p-1.5 rounded-full text-[#8B7355] hover:text-[#4A3426] hover:bg-[#F5F1E8] transition-colors"
                                 >
@@ -1163,7 +1301,7 @@ export default function DashboardPage() {
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    handleDeleteCourse(course.id);
+                                    handleDeleteCourseClick(course.id);
                                   }}
                                   className="p-1.5 rounded-full text-[#8B7355] hover:text-[#E57373] hover:bg-[#E57373]/10 transition-colors"
                                 >
@@ -1207,45 +1345,79 @@ export default function DashboardPage() {
 
                   {/* New course input */}
                   {showNewCourse && (
-                    <div className="flex items-center gap-2 px-3 py-2">
-                      <div className={`w-8 h-8 rounded-lg ${GRADIENT_CLASSES[courses.length % GRADIENT_CLASSES.length]}`} />
-                      <Input
-                        value={newCourseName}
-                        onChange={(e) => setNewCourseName(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") handleCreateCourse();
-                          if (e.key === "Escape") {
+                    <div className="px-3 py-2 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <div className="relative">
+                          <button
+                            onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                            className={`w-10 h-10 rounded-xl ${GRADIENT_CLASSES[courses.length % GRADIENT_CLASSES.length]} flex items-center justify-center text-xl hover:scale-105 transition-transform`}
+                          >
+                            {newCourseEmoji}
+                          </button>
+                          {showEmojiPicker && (
+                            <div className="absolute top-12 left-0 z-50 p-3 bg-white rounded-2xl shadow-soft-lg border border-[#EBE4D6] w-64">
+                              <div className="grid grid-cols-8 gap-1">
+                                {COURSE_EMOJIS.map((emoji) => (
+                                  <button
+                                    key={emoji}
+                                    onClick={() => {
+                                      setNewCourseEmoji(emoji);
+                                      setShowEmojiPicker(false);
+                                    }}
+                                    className={`w-7 h-7 rounded-lg hover:bg-[#F5F1E8] flex items-center justify-center transition-colors ${
+                                      newCourseEmoji === emoji ? "bg-[#7CB342]/20" : ""
+                                    }`}
+                                  >
+                                    {emoji}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                        <Input
+                          value={newCourseName}
+                          onChange={(e) => setNewCourseName(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") handleCreateCourse();
+                            if (e.key === "Escape") {
+                              setShowNewCourse(false);
+                              setNewCourseName("");
+                              setNewCourseEmoji("📚");
+                              setShowEmojiPicker(false);
+                            }
+                          }}
+                          placeholder="Course name..."
+                          className="h-10 text-sm rounded-xl border-[#D7CFC0] focus:border-[#7CB342] focus:ring-[#7CB342]/20"
+                          autoFocus
+                        />
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={handleCreateCourse}
+                          className="h-10 w-10 p-0 rounded-full text-[#7CB342] hover:bg-[#7CB342]/10"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
                             setShowNewCourse(false);
                             setNewCourseName("");
-                          }
-                        }}
-                        placeholder="Course name..."
-                        className="h-8 text-sm rounded-xl border-[#D7CFC0] focus:border-[#7CB342] focus:ring-[#7CB342]/20"
-                        autoFocus
-                      />
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={handleCreateCourse}
-                        className="h-8 w-8 p-0 rounded-full text-[#7CB342] hover:bg-[#7CB342]/10"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => {
-                          setShowNewCourse(false);
-                          setNewCourseName("");
-                        }}
-                        className="h-8 w-8 p-0 rounded-full text-[#8B7355] hover:bg-[#EBE4D6]"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                      </Button>
+                            setNewCourseEmoji("📚");
+                            setShowEmojiPicker(false);
+                          }}
+                          className="h-10 w-10 p-0 rounded-full text-[#8B7355] hover:bg-[#EBE4D6]"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </Button>
+                      </div>
+                      <p className="text-xs text-[#8B7355] ml-12">Click emoji to change</p>
                     </div>
                   )}
 
@@ -1409,7 +1581,9 @@ export default function DashboardPage() {
                   <CardTitle className="text-[#2C1810] font-serif flex items-center gap-3">
                     {selectedCourse ? (
                       <>
-                        <div className={`w-8 h-8 rounded-lg ${GRADIENT_CLASSES[courses.indexOf(selectedCourse) % GRADIENT_CLASSES.length]}`} />
+                        <div className={`w-10 h-10 rounded-xl ${GRADIENT_CLASSES[courses.indexOf(selectedCourse) % GRADIENT_CLASSES.length]} flex items-center justify-center text-xl`}>
+                          {selectedCourse.emoji}
+                        </div>
                         {selectedCourse.name}
                       </>
                     ) : (
