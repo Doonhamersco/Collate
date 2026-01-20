@@ -55,10 +55,10 @@ export function PreStudyModal({
 
   return (
     <Dialog open={open} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="bg-slate-800 border-slate-700 text-white sm:max-w-md">
+      <DialogContent className="bg-white border-0 rounded-3xl shadow-soft-lg text-[#2C1810] sm:max-w-md">
         <DialogHeader>
-          <DialogTitle className="text-xl">{title}</DialogTitle>
-          <DialogDescription className="text-slate-400">
+          <DialogTitle className="text-xl font-serif">{title}</DialogTitle>
+          <DialogDescription className="text-[#8B7355]">
             Choose how you want to study
           </DialogDescription>
         </DialogHeader>
@@ -66,67 +66,67 @@ export function PreStudyModal({
         <div className="space-y-6 py-4">
           {/* Stats */}
           <div className="grid grid-cols-2 gap-3 text-sm">
-            <div className="p-3 rounded-lg bg-slate-700/50">
-              <div className="text-slate-400">Available</div>
-              <div className="text-2xl font-bold text-white">{unmasteredCards}</div>
+            <div className="p-4 rounded-2xl bg-[#F5F1E8]">
+              <div className="text-[#8B7355] text-xs font-medium uppercase tracking-wide">Available</div>
+              <div className="text-3xl font-bold text-[#2C1810] font-serif mt-1">{unmasteredCards}</div>
             </div>
-            <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
-              <div className="text-emerald-400">Mastered</div>
-              <div className="text-2xl font-bold text-emerald-400">{masteredCards}</div>
+            <div className="p-4 rounded-2xl bg-[#E8F5E9]">
+              <div className="text-[#689F38] text-xs font-medium uppercase tracking-wide">Mastered</div>
+              <div className="text-3xl font-bold text-[#7CB342] font-serif mt-1">{masteredCards}</div>
             </div>
             {needsReviewCards > 0 && (
-              <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
-                <div className="text-amber-400">Needs Review</div>
-                <div className="text-2xl font-bold text-amber-400">{needsReviewCards}</div>
+              <div className="p-4 rounded-2xl bg-[#FFF8E1]">
+                <div className="text-[#F9A825] text-xs font-medium uppercase tracking-wide">Needs Review</div>
+                <div className="text-3xl font-bold text-[#FFB74D] font-serif mt-1">{needsReviewCards}</div>
               </div>
             )}
             {dueForReview > 0 && (
-              <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20">
-                <div className="text-red-400">Due Today</div>
-                <div className="text-2xl font-bold text-red-400">{dueForReview}</div>
+              <div className="p-4 rounded-2xl bg-[#FFEBEE]">
+                <div className="text-[#E57373] text-xs font-medium uppercase tracking-wide">Due Today</div>
+                <div className="text-3xl font-bold text-[#E57373] font-serif mt-1">{dueForReview}</div>
               </div>
             )}
           </div>
 
           {/* Study Mode */}
           <div className="space-y-3">
-            <label className="text-sm font-medium text-slate-300">Study Mode</label>
-            <div className="grid grid-cols-1 gap-2">
+            <label className="text-sm font-semibold text-[#4A3426]">Study Mode</label>
+            <div className="grid grid-cols-1 gap-3">
               <button
                 onClick={() => setMode("smart")}
-                className={`p-4 rounded-lg border-2 text-left transition-all ${
+                className={`p-4 rounded-2xl border-2 text-left transition-all ${
                   mode === "smart"
-                    ? "border-amber-500 bg-amber-500/10"
-                    : "border-slate-600 hover:border-slate-500"
+                    ? "border-[#7CB342] bg-[#7CB342]/5"
+                    : "border-[#EBE4D6] hover:border-[#D7CFC0] hover:bg-[#F5F1E8]"
                 }`}
               >
-                <div className="flex items-center gap-2">
-                  <span className="text-xl">🧠</span>
-                  <span className="font-medium">Smart Study</span>
+                <div className="flex items-center gap-3">
+                  <span className="text-2xl">🧠</span>
+                  <span className="font-semibold text-[#2C1810]">Smart Study</span>
                   {mode === "smart" && (
-                    <span className="ml-auto text-xs bg-amber-500 text-slate-900 px-2 py-0.5 rounded-full">
+                    <span className="ml-auto text-xs bg-[#7CB342] text-white px-3 py-1 rounded-full font-medium">
                       Recommended
                     </span>
                   )}
                 </div>
-                <p className="text-sm text-slate-400 mt-1">
+                <p className="text-sm text-[#8B7355] mt-2 ml-10">
                   Prioritizes weak cards & due for review
                 </p>
               </button>
 
               <button
                 onClick={() => setMode("all")}
-                className={`p-4 rounded-lg border-2 text-left transition-all ${
+                className={`p-4 rounded-2xl border-2 text-left transition-all ${
                   mode === "all"
-                    ? "border-amber-500 bg-amber-500/10"
-                    : "border-slate-600 hover:border-slate-500"
+                    ? "border-[#7CB342] bg-[#7CB342]/5"
+                    : "border-[#EBE4D6] hover:border-[#D7CFC0] hover:bg-[#F5F1E8]"
                 }`}
               >
-                <div className="flex items-center gap-2">
-                  <span className="text-xl">🎲</span>
-                  <span className="font-medium">Study All</span>
+                <div className="flex items-center gap-3">
+                  <span className="text-2xl">🎲</span>
+                  <span className="font-semibold text-[#2C1810]">Study All</span>
                 </div>
-                <p className="text-sm text-slate-400 mt-1">
+                <p className="text-sm text-[#8B7355] mt-2 ml-10">
                   Random selection from all cards
                 </p>
               </button>
@@ -135,17 +135,17 @@ export function PreStudyModal({
 
           {/* Card Count */}
           <div className="space-y-3">
-            <label className="text-sm font-medium text-slate-300">How many cards?</label>
+            <label className="text-sm font-semibold text-[#4A3426]">How many cards?</label>
             <div className="flex gap-2">
               {CARD_LIMITS.map((l) => (
                 <button
                   key={l}
                   onClick={() => setLimit(l)}
                   disabled={typeof l === "number" && l > unmasteredCards}
-                  className={`flex-1 py-3 px-4 rounded-lg border-2 font-medium transition-all ${
+                  className={`flex-1 py-3 px-4 rounded-xl border-2 font-semibold transition-all ${
                     limit === l
-                      ? "border-amber-500 bg-amber-500/10 text-amber-400"
-                      : "border-slate-600 text-slate-300 hover:border-slate-500"
+                      ? "border-[#7CB342] bg-[#7CB342]/10 text-[#689F38]"
+                      : "border-[#EBE4D6] text-[#4A3426] hover:border-[#D7CFC0] hover:bg-[#F5F1E8]"
                   } ${
                     typeof l === "number" && l > unmasteredCards
                       ? "opacity-50 cursor-not-allowed"
@@ -164,14 +164,14 @@ export function PreStudyModal({
           <Button
             variant="outline"
             onClick={onClose}
-            className="flex-1 border-slate-600 text-slate-300 hover:bg-slate-700"
+            className="flex-1 rounded-xl border-[#D7CFC0] text-[#4A3426] hover:bg-[#F5F1E8]"
           >
             Cancel
           </Button>
           <Button
             onClick={handleStart}
             disabled={unmasteredCards === 0}
-            className="flex-1 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-slate-900 font-semibold"
+            className="flex-1 rounded-xl bg-[#7CB342] hover:bg-[#689F38] text-white font-semibold shadow-soft"
           >
             Start Studying
           </Button>
@@ -180,4 +180,3 @@ export function PreStudyModal({
     </Dialog>
   );
 }
-

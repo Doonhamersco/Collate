@@ -209,9 +209,9 @@ export function FlashcardFormModal({
 
   return (
     <Dialog open={open} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="bg-slate-800 border-slate-700 text-white sm:max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="bg-white border-0 rounded-3xl shadow-soft-lg text-[#2C1810] sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="text-xl">
+          <DialogTitle className="text-xl font-serif">
             {isEditing ? "Edit Flashcard" : "Create Flashcard"}
           </DialogTitle>
         </DialogHeader>
@@ -219,8 +219,8 @@ export function FlashcardFormModal({
         <div className="space-y-5 py-4">
           {/* AI card notice */}
           {isEditing && editingFlashcard?.source === "ai_generated" && (
-            <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20 text-sm">
-              <p className="text-blue-400">
+            <div className="p-4 rounded-2xl bg-[#E3F2FD] text-sm">
+              <p className="text-[#1976D2]">
                 ℹ️ This card was AI-generated
                 {editingFlashcard.fileName && ` from "${editingFlashcard.fileName}"`}.
                 {!editingFlashcard.isEdited && " Original will be preserved if you make changes."}
@@ -229,21 +229,21 @@ export function FlashcardFormModal({
           )}
 
           {/* Card Type Selector */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-slate-300">Card Type</label>
+          <div className="space-y-3">
+            <label className="text-sm font-semibold text-[#4A3426]">Card Type</label>
             <div className="grid grid-cols-4 gap-2">
               {FLASHCARD_TYPES.map((t) => (
                 <button
                   key={t.value}
                   onClick={() => setType(t.value)}
-                  className={`p-3 rounded-lg border-2 text-center transition-all ${
+                  className={`p-3 rounded-2xl border-2 text-center transition-all ${
                     type === t.value
-                      ? "border-amber-500 bg-amber-500/10"
-                      : "border-slate-600 hover:border-slate-500"
+                      ? "border-[#7CB342] bg-[#7CB342]/10"
+                      : "border-[#EBE4D6] hover:border-[#D7CFC0] hover:bg-[#F5F1E8]"
                   }`}
                 >
-                  <div className="text-lg mb-1">{t.icon}</div>
-                  <div className="text-xs font-medium">{t.label}</div>
+                  <div className="text-xl mb-1">{t.icon}</div>
+                  <div className="text-xs font-semibold text-[#4A3426]">{t.label}</div>
                 </button>
               ))}
             </div>
@@ -251,20 +251,20 @@ export function FlashcardFormModal({
 
           {/* Destination Selector */}
           <div className="space-y-2">
-            <label className="text-sm font-medium text-slate-300">Save to *</label>
+            <label className="text-sm font-semibold text-[#4A3426]">Save to *</label>
             <Select value={destination} onValueChange={setDestination}>
-              <SelectTrigger className={`bg-slate-900 border-slate-600 ${errors.destination ? "border-red-500" : ""}`}>
+              <SelectTrigger className={`h-12 rounded-xl bg-[#F5F1E8] border-0 ${errors.destination ? "ring-2 ring-[#E57373]" : ""}`}>
                 <SelectValue placeholder="Select course or deck..." />
               </SelectTrigger>
-              <SelectContent className="bg-slate-800 border-slate-700">
+              <SelectContent className="bg-white border-[#EBE4D6] rounded-xl shadow-soft">
                 {courses.length > 0 && (
                   <>
-                    <div className="px-2 py-1.5 text-xs text-slate-500 font-medium">Courses</div>
+                    <div className="px-3 py-2 text-xs text-[#8B7355] font-semibold uppercase tracking-wide">Courses</div>
                     {courses.map((course) => (
-                      <SelectItem key={`course:${course.id}`} value={`course:${course.id}`}>
+                      <SelectItem key={`course:${course.id}`} value={`course:${course.id}`} className="rounded-lg">
                         <div className="flex items-center gap-2">
                           <div
-                            className="w-2.5 h-2.5 rounded-full"
+                            className="w-3 h-3 rounded-full"
                             style={{ backgroundColor: course.color }}
                           />
                           {course.name}
@@ -275,12 +275,12 @@ export function FlashcardFormModal({
                 )}
                 {decks.length > 0 && (
                   <>
-                    <div className="px-2 py-1.5 text-xs text-slate-500 font-medium mt-1">Custom Decks</div>
+                    <div className="px-3 py-2 text-xs text-[#8B7355] font-semibold uppercase tracking-wide mt-1">Custom Decks</div>
                     {decks.map((deck) => (
-                      <SelectItem key={`deck:${deck.id}`} value={`deck:${deck.id}`}>
+                      <SelectItem key={`deck:${deck.id}`} value={`deck:${deck.id}`} className="rounded-lg">
                         <div className="flex items-center gap-2">
                           <div
-                            className="w-2.5 h-2.5 rounded-full"
+                            className="w-3 h-3 rounded-full"
                             style={{ backgroundColor: deck.color }}
                           />
                           📚 {deck.name}
@@ -292,52 +292,52 @@ export function FlashcardFormModal({
               </SelectContent>
             </Select>
             {errors.destination && (
-              <p className="text-xs text-red-400">{errors.destination}</p>
+              <p className="text-xs text-[#E57373] font-medium">{errors.destination}</p>
             )}
           </div>
 
           {/* Question/Term Input */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <label className="text-sm font-medium text-slate-300">{getQuestionLabel()} *</label>
-              <span className="text-xs text-slate-500">{question.length}/500</span>
+              <label className="text-sm font-semibold text-[#4A3426]">{getQuestionLabel()} *</label>
+              <span className="text-xs text-[#8B7355]">{question.length}/500</span>
             </div>
             <Textarea
               value={question}
               onChange={(e) => setQuestion(e.target.value)}
               placeholder={getQuestionPlaceholder()}
-              className={`bg-slate-900 border-slate-600 min-h-[80px] resize-none ${errors.question ? "border-red-500" : ""}`}
+              className={`bg-[#F5F1E8] border-0 min-h-[80px] resize-none rounded-xl focus:ring-2 focus:ring-[#7CB342]/30 ${errors.question ? "ring-2 ring-[#E57373]" : ""}`}
               maxLength={500}
             />
             {errors.question && (
-              <p className="text-xs text-red-400">{errors.question}</p>
+              <p className="text-xs text-[#E57373] font-medium">{errors.question}</p>
             )}
           </div>
 
           {/* Answer Input */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <label className="text-sm font-medium text-slate-300">{getAnswerLabel()} *</label>
-              <span className="text-xs text-slate-500">{answer.length}/1000</span>
+              <label className="text-sm font-semibold text-[#4A3426]">{getAnswerLabel()} *</label>
+              <span className="text-xs text-[#8B7355]">{answer.length}/1000</span>
             </div>
             {type === "true_false" ? (
               <div className="flex gap-3">
                 <button
                   onClick={() => setAnswer("True")}
-                  className={`flex-1 py-3 rounded-lg border-2 font-medium transition-all ${
+                  className={`flex-1 py-4 rounded-xl border-2 font-semibold transition-all ${
                     answer.toLowerCase() === "true"
-                      ? "border-emerald-500 bg-emerald-500/20 text-emerald-400"
-                      : "border-slate-600 text-slate-300 hover:border-slate-500"
+                      ? "border-[#7CB342] bg-[#7CB342]/10 text-[#689F38]"
+                      : "border-[#EBE4D6] text-[#4A3426] hover:border-[#D7CFC0]"
                   }`}
                 >
                   ✓ True
                 </button>
                 <button
                   onClick={() => setAnswer("False")}
-                  className={`flex-1 py-3 rounded-lg border-2 font-medium transition-all ${
+                  className={`flex-1 py-4 rounded-xl border-2 font-semibold transition-all ${
                     answer.toLowerCase() === "false"
-                      ? "border-red-500 bg-red-500/20 text-red-400"
-                      : "border-slate-600 text-slate-300 hover:border-slate-500"
+                      ? "border-[#E57373] bg-[#E57373]/10 text-[#E57373]"
+                      : "border-[#EBE4D6] text-[#4A3426] hover:border-[#D7CFC0]"
                   }`}
                 >
                   ✗ False
@@ -348,24 +348,24 @@ export function FlashcardFormModal({
                 value={answer}
                 onChange={(e) => setAnswer(e.target.value)}
                 placeholder={getAnswerPlaceholder()}
-                className={`bg-slate-900 border-slate-600 min-h-[80px] resize-none ${errors.answer ? "border-red-500" : ""}`}
+                className={`bg-[#F5F1E8] border-0 min-h-[80px] resize-none rounded-xl focus:ring-2 focus:ring-[#7CB342]/30 ${errors.answer ? "ring-2 ring-[#E57373]" : ""}`}
                 maxLength={1000}
               />
             )}
             {errors.answer && (
-              <p className="text-xs text-red-400">{errors.answer}</p>
+              <p className="text-xs text-[#E57373] font-medium">{errors.answer}</p>
             )}
           </div>
 
           {/* Fill-in-blank preview */}
           {type === "fill_blank" && question.includes("{{blank}}") && (
-            <div className="p-3 rounded-lg bg-slate-700/50 border border-slate-600">
-              <p className="text-xs text-slate-400 mb-1">Preview:</p>
-              <p className="text-white">
+            <div className="p-4 rounded-2xl bg-[#F5F1E8]">
+              <p className="text-xs text-[#8B7355] mb-2 font-medium">Preview:</p>
+              <p className="text-[#2C1810] font-medium">
                 {question.replace("{{blank}}", "_____")}
               </p>
               {answer && (
-                <p className="text-emerald-400 text-sm mt-1">
+                <p className="text-[#7CB342] text-sm mt-2">
                   Answer: {answer}
                 </p>
               )}
@@ -374,7 +374,7 @@ export function FlashcardFormModal({
 
           {/* Last edited timestamp */}
           {isEditing && editingFlashcard?.updatedAt && (
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-[#8B7355]">
               Last edited: {new Date(editingFlashcard.updatedAt).toLocaleString()}
             </p>
           )}
@@ -386,14 +386,14 @@ export function FlashcardFormModal({
             variant="outline"
             onClick={onClose}
             disabled={saving}
-            className="flex-1 border-slate-600 text-slate-300 hover:bg-slate-700"
+            className="flex-1 rounded-xl border-[#D7CFC0] text-[#4A3426] hover:bg-[#F5F1E8]"
           >
             Cancel
           </Button>
           <Button
             onClick={handleSave}
             disabled={saving}
-            className="flex-1 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-slate-900 font-semibold"
+            className="flex-1 rounded-xl bg-[#7CB342] hover:bg-[#689F38] text-white font-semibold shadow-soft"
           >
             {saving ? "Saving..." : isEditing ? "Save Changes" : "Create Flashcard"}
           </Button>
@@ -402,4 +402,3 @@ export function FlashcardFormModal({
     </Dialog>
   );
 }
-

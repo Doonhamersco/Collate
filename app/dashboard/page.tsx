@@ -105,26 +105,32 @@ interface StudySessionConfig {
   sourceId: string | null;
 }
 
-const COURSE_COLORS = [
-  "#ef4444", "#f97316", "#f59e0b", "#84cc16", "#22c55e",
-  "#14b8a6", "#06b6d4", "#3b82f6", "#6366f1", "#8b5cf6",
-  "#a855f7", "#d946ef", "#ec4899", "#f43f5e",
+// Pastel gradient palette for courses/decks
+const GRADIENT_CLASSES = [
+  "gradient-yellow",
+  "gradient-green",
+  "gradient-peach",
+  "gradient-lavender",
+  "gradient-sky",
+  "gradient-mint",
+  "gradient-rose",
+  "gradient-beige",
 ];
 
 // Helper to calculate mastery percentage from flashcards
 function calculateMastery(cards: Flashcard[]): { percentage: number; color: string } {
-  if (cards.length === 0) return { percentage: 0, color: "#64748b" };
+  if (cards.length === 0) return { percentage: 0, color: "#8B7355" };
   
   const studiedCards = cards.filter((c) => c.ratingCount > 0);
-  if (studiedCards.length === 0) return { percentage: 0, color: "#64748b" };
+  if (studiedCards.length === 0) return { percentage: 0, color: "#8B7355" };
   
   const avgRating = studiedCards.reduce((sum, c) => sum + (c.averageRating || 0), 0) / studiedCards.length;
   const percentage = Math.round(((avgRating - 1) / 4) * 100);
   
   // Color based on mastery
-  if (percentage >= 80) return { percentage, color: "#22c55e" }; // Green
-  if (percentage >= 60) return { percentage, color: "#eab308" }; // Yellow
-  return { percentage, color: "#ef4444" }; // Red
+  if (percentage >= 80) return { percentage, color: "#7CB342" }; // Green
+  if (percentage >= 60) return { percentage, color: "#FFB74D" }; // Amber
+  return { percentage, color: "#E57373" }; // Red
 }
 
 // Shuffle array using Fisher-Yates
@@ -345,11 +351,11 @@ export default function DashboardPage() {
 
     try {
       const courseId = `course_${Date.now()}`;
-      const color = COURSE_COLORS[courses.length % COURSE_COLORS.length];
+      const gradientClass = GRADIENT_CLASSES[courses.length % GRADIENT_CLASSES.length];
 
       await setDoc(doc(db, "users", user.uid, "courses", courseId), {
         name: newCourseName.trim(),
-        color,
+        color: gradientClass,
         createdAt: serverTimestamp(),
       });
 
@@ -764,7 +770,7 @@ export default function DashboardPage() {
   };
 
   // Open pre-study modal for different sources
-  const openStudyModal = (sourceType: "all" | "course" | "file", sourceId: string | null) => {
+  const openStudyModal = (sourceType: "all" | "course" | "file" | "deck", sourceId: string | null) => {
     setStudySessionConfig({
       mode: "smart",
       limit: "all",
@@ -858,8 +864,15 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
-        <p className="text-slate-400">Loading...</p>
+      <div className="min-h-screen flex items-center justify-center bg-[#F5F1E8]">
+        <div className="text-center animate-fade-in">
+          <div className="w-16 h-16 mx-auto mb-4 rounded-2xl gradient-beige flex items-center justify-center shadow-soft animate-pulse">
+            <svg className="w-8 h-8 text-[#4A3426]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+            </svg>
+          </div>
+          <p className="text-[#8B7355] font-medium">Loading...</p>
+        </div>
       </div>
     );
   }
@@ -876,10 +889,7 @@ export default function DashboardPage() {
   const selectedCourse = courses.find((c) => c.id === selectedCourseId);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
-      {/* Background pattern */}
-      <div className="fixed inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiMyMDIwMjAiIGZpbGwtb3BhY2l0eT0iMC40Ij48cGF0aCBkPSJNMzYgMzRoLTJ2LTRoMnY0em0wLTZoLTJ2LTRoMnY0em0tNiA2aC0ydi00aDJ2NHptMC02aC0ydi00aDJ2NHptLTYgNmgtMnYtNGgydjR6bTAtNmgtMnYtNGgydjR6Ii8+PC9nPjwvZz48L3N2Zz4=')] opacity-20 pointer-events-none" />
-
+    <div className="min-h-screen bg-[#F5F1E8]">
       {/* Pre-study modal */}
       <PreStudyModal
         open={showPreStudyModal}
@@ -932,43 +942,33 @@ export default function DashboardPage() {
       />
 
       {/* Header */}
-      <header className="relative z-10 border-b border-slate-700/50 bg-slate-900/50 backdrop-blur-sm">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
+      <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-[#D7CFC0]">
+        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-amber-400 to-orange-500 rounded-xl flex items-center justify-center">
-              <svg
-                className="w-5 h-5 text-slate-900"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
-                />
+            <div className="w-11 h-11 rounded-2xl gradient-beige flex items-center justify-center shadow-soft">
+              <svg className="w-6 h-6 text-[#4A3426]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
               </svg>
             </div>
-            <h1 className="text-xl font-bold text-white">Collate</h1>
+            <h1 className="text-2xl font-bold text-[#2C1810] font-serif">Collate</h1>
           </div>
           <div className="flex items-center gap-4">
             <Button
               size="sm"
               onClick={() => openFlashcardModal(selectedCourseId, selectedDeckId)}
-              className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-slate-900 font-semibold"
+              className="rounded-full px-5 bg-[#7CB342] hover:bg-[#689F38] text-white font-semibold shadow-soft transition-all hover:shadow-soft-lg hover:-translate-y-0.5"
             >
-              <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
               </svg>
               New Card
             </Button>
-            <span className="text-sm text-slate-400">{user.email}</span>
+            <span className="text-sm text-[#8B7355]">{user.email}</span>
             <Button
               variant="outline"
               size="sm"
               onClick={handleSignOut}
-              className="border-slate-600 text-slate-300 hover:bg-slate-700 hover:text-white"
+              className="rounded-full border-[#D7CFC0] text-[#4A3426] hover:bg-[#EBE4D6] hover:border-[#C4B8A5]"
             >
               Sign out
             </Button>
@@ -977,9 +977,9 @@ export default function DashboardPage() {
       </header>
 
       {/* Main content */}
-      <main className="relative z-10 max-w-7xl mx-auto px-4 py-8">
+      <main className="max-w-7xl mx-auto px-6 py-8">
         {viewingFlashcards ? (
-          <div className="space-y-6">
+          <div className="space-y-6 animate-fade-in">
             <div className="flex items-center gap-4">
               <Button
                 variant="ghost"
@@ -989,20 +989,10 @@ export default function DashboardPage() {
                   setStudyFlashcards([]);
                   setStudySessionId(null);
                 }}
-                className="text-slate-400 hover:text-white"
+                className="text-[#8B7355] hover:text-[#4A3426] hover:bg-[#EBE4D6] rounded-full"
               >
-                <svg
-                  className="w-4 h-4 mr-2"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M15 19l-7-7 7-7"
-                  />
+                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                 </svg>
                 Back to files
               </Button>
@@ -1026,18 +1016,18 @@ export default function DashboardPage() {
             />
           </div>
         ) : (
-          <div className="flex gap-8">
+          <div className="flex gap-8 animate-fade-in">
             {/* Courses sidebar */}
-            <div className="w-64 flex-shrink-0">
-              <Card className="bg-slate-800/50 border-slate-700 sticky top-8">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-white text-lg flex items-center justify-between">
+            <div className="w-72 flex-shrink-0 space-y-6">
+              <Card className="bg-white rounded-3xl shadow-soft border-0 overflow-hidden">
+                <CardHeader className="pb-3 bg-gradient-to-br from-[#FFF8E1] to-[#FFECB3]">
+                  <CardTitle className="text-[#2C1810] text-lg font-serif flex items-center justify-between">
                     Courses
                     <Button
                       size="sm"
                       variant="ghost"
                       onClick={() => setShowNewCourse(true)}
-                      className="h-8 w-8 p-0 text-slate-400 hover:text-white"
+                      className="h-8 w-8 p-0 rounded-full text-[#8B7355] hover:text-[#4A3426] hover:bg-white/50"
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -1045,45 +1035,51 @@ export default function DashboardPage() {
                     </Button>
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-1">
+                <CardContent className="space-y-1 p-3">
                   {/* All Files option */}
                   <div className="group">
                     <button
-                      onClick={() => setSelectedCourseId(null)}
-                      className={`w-full text-left px-3 py-2 rounded-lg transition-colors flex items-center gap-2 ${
-                        selectedCourseId === null
-                          ? "bg-amber-500/20 text-amber-400"
-                          : "text-slate-300 hover:bg-slate-700"
+                      onClick={() => {
+                        setSelectedCourseId(null);
+                        setSelectedDeckId(null);
+                      }}
+                      className={`w-full text-left px-4 py-3 rounded-2xl transition-all flex items-center gap-3 ${
+                        selectedCourseId === null && selectedDeckId === null
+                          ? "bg-[#7CB342]/10 text-[#689F38] shadow-sm"
+                          : "text-[#4A3426] hover:bg-[#F5F1E8]"
                       }`}
                     >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                      </svg>
-                      <span className="flex-1">All Files</span>
-                      <span className="text-xs text-slate-500">{files.length}</span>
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                        selectedCourseId === null && selectedDeckId === null
+                          ? "bg-[#7CB342]/20"
+                          : "bg-[#EBE4D6]"
+                      }`}>
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                        </svg>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <span className="font-medium block">All Files</span>
+                        <span className="text-xs text-[#8B7355]">{files.length} files</span>
+                      </div>
                     </button>
                     {/* Study button for All Files */}
                     {courseStats["all"]?.total > 0 && (
-                      <div className="flex items-center gap-2 px-3 py-1">
+                      <div className="flex items-center gap-2 px-4 py-2 ml-12">
                         <div className="flex-1 flex items-center gap-2">
                           {courseStats["all"].mastery.percentage > 0 && (
-                            <span
-                              className="text-xs font-medium"
-                              style={{ color: courseStats["all"].mastery.color }}
-                            >
+                            <span className="text-xs font-semibold" style={{ color: courseStats["all"].mastery.color }}>
                               {courseStats["all"].mastery.percentage}%
                             </span>
                           )}
-                          <span className="text-xs text-slate-500">
-                            {courseStats["all"].total} cards
-                          </span>
+                          <span className="text-xs text-[#8B7355]">{courseStats["all"].total} cards</span>
                         </div>
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
                             openStudyModal("all", null);
                           }}
-                          className="text-xs px-2 py-1 rounded bg-amber-500/20 text-amber-400 hover:bg-amber-500/30 transition-colors"
+                          className="text-xs px-3 py-1.5 rounded-full bg-[#7CB342]/10 text-[#689F38] hover:bg-[#7CB342]/20 transition-colors font-medium"
                         >
                           Study
                         </button>
@@ -1091,22 +1087,20 @@ export default function DashboardPage() {
                     )}
                   </div>
 
-                  <div className="my-2 border-t border-slate-700" />
+                  <div className="my-3 border-t border-[#EBE4D6]" />
 
                   {/* Course list */}
-                  {courses.map((course) => {
+                  {courses.map((course, index) => {
                     const courseFileCount = files.filter((f) => f.courseId === course.id).length;
                     const stats = courseStats[course.id];
                     const isEditing = editingCourseId === course.id;
+                    const gradientClass = GRADIENT_CLASSES[index % GRADIENT_CLASSES.length];
 
                     return (
                       <div key={course.id} className="group">
                         {isEditing ? (
-                          <div className="flex items-center gap-1 px-2 py-1">
-                            <div
-                              className="w-3 h-3 rounded-full flex-shrink-0"
-                              style={{ backgroundColor: course.color }}
-                            />
+                          <div className="flex items-center gap-2 px-3 py-2">
+                            <div className={`w-8 h-8 rounded-lg ${gradientClass}`} />
                             <Input
                               value={editCourseName}
                               onChange={(e) => setEditCourseName(e.target.value)}
@@ -1117,16 +1111,16 @@ export default function DashboardPage() {
                                   setEditCourseName("");
                                 }
                               }}
-                              className="h-7 text-sm bg-slate-800 border-slate-600"
+                              className="h-8 text-sm rounded-xl border-[#D7CFC0] focus:border-[#7CB342] focus:ring-[#7CB342]/20"
                               autoFocus
                             />
                             <Button
                               size="sm"
                               variant="ghost"
                               onClick={() => handleRenameCourse(course.id)}
-                              className="h-7 w-7 p-0 text-emerald-400"
+                              className="h-8 w-8 p-0 rounded-full text-[#7CB342] hover:bg-[#7CB342]/10"
                             >
-                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                               </svg>
                             </Button>
@@ -1135,32 +1129,34 @@ export default function DashboardPage() {
                           <>
                             <div className="relative">
                               <button
-                                onClick={() => setSelectedCourseId(course.id)}
-                                className={`w-full text-left px-3 py-2 rounded-lg transition-colors flex items-center gap-2 ${
+                                onClick={() => {
+                                  setSelectedCourseId(course.id);
+                                  setSelectedDeckId(null);
+                                }}
+                                className={`w-full text-left px-4 py-3 rounded-2xl transition-all flex items-center gap-3 ${
                                   selectedCourseId === course.id
-                                    ? "bg-amber-500/20 text-amber-400"
-                                    : "text-slate-300 hover:bg-slate-700"
+                                    ? "bg-[#7CB342]/10 text-[#689F38] shadow-sm"
+                                    : "text-[#4A3426] hover:bg-[#F5F1E8]"
                                 }`}
                               >
-                                <div
-                                  className="w-3 h-3 rounded-full flex-shrink-0"
-                                  style={{ backgroundColor: course.color }}
-                                />
-                                <span className="truncate flex-1">{course.name}</span>
-                                <span className="text-xs text-slate-500">{courseFileCount}</span>
+                                <div className={`w-10 h-10 rounded-xl ${gradientClass} shadow-sm`} />
+                                <div className="flex-1 min-w-0">
+                                  <span className="font-medium block truncate">{course.name}</span>
+                                  <span className="text-xs text-[#8B7355]">{courseFileCount} files</span>
+                                </div>
                               </button>
 
                               {/* Course actions (show on hover) */}
-                              <div className="absolute right-1 top-1/2 -translate-y-1/2 hidden group-hover:flex items-center gap-1 bg-slate-800 rounded px-1">
+                              <div className="absolute right-2 top-1/2 -translate-y-1/2 hidden group-hover:flex items-center gap-1 bg-white rounded-full shadow-soft px-1 py-0.5">
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     setEditingCourseId(course.id);
                                     setEditCourseName(course.name);
                                   }}
-                                  className="p-1 text-slate-500 hover:text-slate-300"
+                                  className="p-1.5 rounded-full text-[#8B7355] hover:text-[#4A3426] hover:bg-[#F5F1E8] transition-colors"
                                 >
-                                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                                   </svg>
                                 </button>
@@ -1169,9 +1165,9 @@ export default function DashboardPage() {
                                     e.stopPropagation();
                                     handleDeleteCourse(course.id);
                                   }}
-                                  className="p-1 text-slate-500 hover:text-red-400"
+                                  className="p-1.5 rounded-full text-[#8B7355] hover:text-[#E57373] hover:bg-[#E57373]/10 transition-colors"
                                 >
-                                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                                   </svg>
                                 </button>
@@ -1180,23 +1176,16 @@ export default function DashboardPage() {
 
                             {/* Course study stats & button */}
                             {stats?.total > 0 && (
-                              <div className="flex items-center gap-2 px-3 py-1">
+                              <div className="flex items-center gap-2 px-4 py-2 ml-12">
                                 <div className="flex-1 flex items-center gap-2">
                                   {stats.mastery.percentage > 0 && (
-                                    <span
-                                      className="text-xs font-medium"
-                                      style={{ color: stats.mastery.color }}
-                                    >
+                                    <span className="text-xs font-semibold" style={{ color: stats.mastery.color }}>
                                       {stats.mastery.percentage}%
                                     </span>
                                   )}
-                                  <span className="text-xs text-slate-500">
-                                    {stats.total} cards
-                                  </span>
+                                  <span className="text-xs text-[#8B7355]">{stats.total} cards</span>
                                   {stats.mastered > 0 && (
-                                    <span className="text-xs text-emerald-400">
-                                      🏆 {stats.mastered}
-                                    </span>
+                                    <span className="text-xs text-[#7CB342]">🏆 {stats.mastered}</span>
                                   )}
                                 </div>
                                 <button
@@ -1204,7 +1193,7 @@ export default function DashboardPage() {
                                     e.stopPropagation();
                                     openStudyModal("course", course.id);
                                   }}
-                                  className="text-xs px-2 py-1 rounded bg-amber-500/20 text-amber-400 hover:bg-amber-500/30 transition-colors"
+                                  className="text-xs px-3 py-1.5 rounded-full bg-[#7CB342]/10 text-[#689F38] hover:bg-[#7CB342]/20 transition-colors font-medium"
                                 >
                                   Study
                                 </button>
@@ -1218,11 +1207,8 @@ export default function DashboardPage() {
 
                   {/* New course input */}
                   {showNewCourse && (
-                    <div className="flex items-center gap-2 px-2 py-1">
-                      <div
-                        className="w-3 h-3 rounded-full flex-shrink-0"
-                        style={{ backgroundColor: COURSE_COLORS[courses.length % COURSE_COLORS.length] }}
-                      />
+                    <div className="flex items-center gap-2 px-3 py-2">
+                      <div className={`w-8 h-8 rounded-lg ${GRADIENT_CLASSES[courses.length % GRADIENT_CLASSES.length]}`} />
                       <Input
                         value={newCourseName}
                         onChange={(e) => setNewCourseName(e.target.value)}
@@ -1234,16 +1220,16 @@ export default function DashboardPage() {
                           }
                         }}
                         placeholder="Course name..."
-                        className="h-7 text-sm bg-slate-800 border-slate-600"
+                        className="h-8 text-sm rounded-xl border-[#D7CFC0] focus:border-[#7CB342] focus:ring-[#7CB342]/20"
                         autoFocus
                       />
                       <Button
                         size="sm"
                         variant="ghost"
                         onClick={handleCreateCourse}
-                        className="h-7 w-7 p-0 text-emerald-400"
+                        className="h-8 w-8 p-0 rounded-full text-[#7CB342] hover:bg-[#7CB342]/10"
                       >
-                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                         </svg>
                       </Button>
@@ -1254,9 +1240,9 @@ export default function DashboardPage() {
                           setShowNewCourse(false);
                           setNewCourseName("");
                         }}
-                        className="h-7 w-7 p-0 text-slate-400"
+                        className="h-8 w-8 p-0 rounded-full text-[#8B7355] hover:bg-[#EBE4D6]"
                       >
-                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                         </svg>
                       </Button>
@@ -1264,7 +1250,7 @@ export default function DashboardPage() {
                   )}
 
                   {courses.length === 0 && !showNewCourse && (
-                    <p className="text-sm text-slate-500 px-3 py-2">
+                    <p className="text-sm text-[#8B7355] px-4 py-3 text-center">
                       No courses yet. Create one to organize your files.
                     </p>
                   )}
@@ -1272,15 +1258,15 @@ export default function DashboardPage() {
               </Card>
 
               {/* Custom Decks Card */}
-              <Card className="bg-slate-800/50 border-slate-700">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-white text-lg flex items-center justify-between">
+              <Card className="bg-white rounded-3xl shadow-soft border-0 overflow-hidden">
+                <CardHeader className="pb-3 bg-gradient-to-br from-[#F3E5F5] to-[#E1BEE7]">
+                  <CardTitle className="text-[#2C1810] text-lg font-serif flex items-center justify-between">
                     Custom Decks
                     <Button
                       size="sm"
                       variant="ghost"
                       onClick={() => openDeckModal()}
-                      className="h-8 w-8 p-0 text-slate-400 hover:text-white"
+                      className="h-8 w-8 p-0 rounded-full text-[#8B7355] hover:text-[#4A3426] hover:bg-white/50"
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -1288,9 +1274,10 @@ export default function DashboardPage() {
                     </Button>
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-1">
-                  {decks.map((deck) => {
+                <CardContent className="space-y-1 p-3">
+                  {decks.map((deck, index) => {
                     const stats = courseStats[`deck:${deck.id}`];
+                    const gradientClass = GRADIENT_CLASSES[(index + courses.length) % GRADIENT_CLASSES.length];
                     
                     return (
                       <div key={deck.id} className="group">
@@ -1300,31 +1287,32 @@ export default function DashboardPage() {
                               setSelectedDeckId(deck.id);
                               setSelectedCourseId(null);
                             }}
-                            className={`w-full text-left px-3 py-2 rounded-lg transition-colors flex items-center gap-2 ${
+                            className={`w-full text-left px-4 py-3 rounded-2xl transition-all flex items-center gap-3 ${
                               selectedDeckId === deck.id
-                                ? "bg-amber-500/20 text-amber-400"
-                                : "text-slate-300 hover:bg-slate-700"
+                                ? "bg-[#7CB342]/10 text-[#689F38] shadow-sm"
+                                : "text-[#4A3426] hover:bg-[#F5F1E8]"
                             }`}
                           >
-                            <div
-                              className="w-3 h-3 rounded-full flex-shrink-0"
-                              style={{ backgroundColor: deck.color }}
-                            />
-                            <span className="truncate flex-1">📚 {deck.name}</span>
-                            <span className="text-xs text-slate-500">{stats?.total || 0}</span>
+                            <div className={`w-10 h-10 rounded-xl ${gradientClass} shadow-sm flex items-center justify-center`}>
+                              <span className="text-lg">📚</span>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <span className="font-medium block truncate">{deck.name}</span>
+                              <span className="text-xs text-[#8B7355]">{stats?.total || 0} cards</span>
+                            </div>
                           </button>
 
                           {/* Deck actions (show on hover) */}
-                          <div className="absolute right-1 top-1/2 -translate-y-1/2 hidden group-hover:flex items-center gap-1 bg-slate-800 rounded px-1">
+                          <div className="absolute right-2 top-1/2 -translate-y-1/2 hidden group-hover:flex items-center gap-1 bg-white rounded-full shadow-soft px-1 py-0.5">
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
                                 openFlashcardModal(null, deck.id);
                               }}
-                              className="p-1 text-slate-500 hover:text-amber-400"
+                              className="p-1.5 rounded-full text-[#8B7355] hover:text-[#7CB342] hover:bg-[#7CB342]/10 transition-colors"
                               title="Add card"
                             >
-                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                               </svg>
                             </button>
@@ -1333,10 +1321,10 @@ export default function DashboardPage() {
                                 e.stopPropagation();
                                 openDeckModal(deck);
                               }}
-                              className="p-1 text-slate-500 hover:text-slate-300"
+                              className="p-1.5 rounded-full text-[#8B7355] hover:text-[#4A3426] hover:bg-[#F5F1E8] transition-colors"
                               title="Edit deck"
                             >
-                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                               </svg>
                             </button>
@@ -1345,10 +1333,10 @@ export default function DashboardPage() {
                                 e.stopPropagation();
                                 setDeleteTarget({ type: "deck", id: deck.id, preview: deck.name });
                               }}
-                              className="p-1 text-slate-500 hover:text-red-400"
+                              className="p-1.5 rounded-full text-[#8B7355] hover:text-[#E57373] hover:bg-[#E57373]/10 transition-colors"
                               title="Delete deck"
                             >
-                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                               </svg>
                             </button>
@@ -1357,23 +1345,16 @@ export default function DashboardPage() {
 
                         {/* Deck study stats & button */}
                         {stats?.total > 0 && (
-                          <div className="flex items-center gap-2 px-3 py-1">
+                          <div className="flex items-center gap-2 px-4 py-2 ml-12">
                             <div className="flex-1 flex items-center gap-2">
                               {stats.mastery.percentage > 0 && (
-                                <span
-                                  className="text-xs font-medium"
-                                  style={{ color: stats.mastery.color }}
-                                >
+                                <span className="text-xs font-semibold" style={{ color: stats.mastery.color }}>
                                   {stats.mastery.percentage}%
                                 </span>
                               )}
-                              <span className="text-xs text-slate-500">
-                                {stats.total} cards
-                              </span>
+                              <span className="text-xs text-[#8B7355]">{stats.total} cards</span>
                               {stats.mastered > 0 && (
-                                <span className="text-xs text-emerald-400">
-                                  🏆 {stats.mastered}
-                                </span>
+                                <span className="text-xs text-[#7CB342]">🏆 {stats.mastered}</span>
                               )}
                             </div>
                             <button
@@ -1381,7 +1362,7 @@ export default function DashboardPage() {
                                 e.stopPropagation();
                                 openStudyModal("deck", deck.id);
                               }}
-                              className="text-xs px-2 py-1 rounded bg-amber-500/20 text-amber-400 hover:bg-amber-500/30 transition-colors"
+                              className="text-xs px-3 py-1.5 rounded-full bg-[#7CB342]/10 text-[#689F38] hover:bg-[#7CB342]/20 transition-colors font-medium"
                             >
                               Study
                             </button>
@@ -1392,7 +1373,7 @@ export default function DashboardPage() {
                   })}
 
                   {decks.length === 0 && (
-                    <p className="text-sm text-slate-500 px-3 py-2">
+                    <p className="text-sm text-[#8B7355] px-4 py-3 text-center">
                       No custom decks yet. Create one for standalone flashcards.
                     </p>
                   )}
@@ -1403,49 +1384,43 @@ export default function DashboardPage() {
             {/* Main content area */}
             <div className="flex-1 space-y-6">
               {/* Upload section */}
-              <Card className="bg-slate-800/50 border-slate-700">
-                <CardHeader>
-                  <CardTitle className="text-white flex items-center gap-2">
+              <Card className="bg-white rounded-3xl shadow-soft border-0 overflow-hidden">
+                <CardHeader className="bg-gradient-to-br from-[#E8F5E9] to-[#C8E6C9]">
+                  <CardTitle className="text-[#2C1810] font-serif flex items-center gap-2">
                     Upload File
                     {selectedCourse && (
-                      <span className="text-sm font-normal text-slate-400">
+                      <span className="text-sm font-normal text-[#4A3426]">
                         to{" "}
-                        <span
-                          className="font-medium"
-                          style={{ color: selectedCourse.color }}
-                        >
+                        <span className="font-medium text-[#689F38]">
                           {selectedCourse.name}
                         </span>
                       </span>
                     )}
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="p-6">
                   <FileUpload userId={user.uid} courseId={selectedCourseId || undefined} />
                 </CardContent>
               </Card>
 
               {/* Files list */}
-              <Card className="bg-slate-800/50 border-slate-700">
-                <CardHeader>
-                  <CardTitle className="text-white flex items-center gap-2">
+              <Card className="bg-white rounded-3xl shadow-soft border-0 overflow-hidden">
+                <CardHeader className="bg-gradient-to-br from-[#FFF8E1] to-[#FFECB3]">
+                  <CardTitle className="text-[#2C1810] font-serif flex items-center gap-3">
                     {selectedCourse ? (
                       <>
-                        <div
-                          className="w-3 h-3 rounded-full"
-                          style={{ backgroundColor: selectedCourse.color }}
-                        />
+                        <div className={`w-8 h-8 rounded-lg ${GRADIENT_CLASSES[courses.indexOf(selectedCourse) % GRADIENT_CLASSES.length]}`} />
                         {selectedCourse.name}
                       </>
                     ) : (
                       "All Files"
                     )}
-                    <span className="text-sm font-normal text-slate-400">
+                    <span className="text-sm font-normal text-[#8B7355]">
                       ({filteredFiles.length} {filteredFiles.length === 1 ? "file" : "files"})
                     </span>
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="p-6">
                   <FileList
                     files={filteredFiles}
                     generating={generating}
@@ -1457,7 +1432,9 @@ export default function DashboardPage() {
                     }}
                     flashcardCounts={flashcards.reduce(
                       (acc, fc) => {
-                        acc[fc.fileId] = (acc[fc.fileId] || 0) + 1;
+                        if (fc.fileId) {
+                          acc[fc.fileId] = (acc[fc.fileId] || 0) + 1;
+                        }
                         return acc;
                       },
                       {} as Record<string, number>
@@ -1468,7 +1445,7 @@ export default function DashboardPage() {
             </div>
 
             {/* Stats sidebar */}
-            <div className="w-64 flex-shrink-0 space-y-6">
+            <div className="w-72 flex-shrink-0 space-y-6">
               {/* Context-aware stats based on selected course */}
               {(() => {
                 const currentStats = selectedCourseId 
@@ -1483,32 +1460,32 @@ export default function DashboardPage() {
 
                 return (
                   <>
-                    <Card className="bg-slate-800/50 border-slate-700">
-                      <CardHeader>
-                        <CardTitle className="text-white text-lg">
+                    <Card className="bg-white rounded-3xl shadow-soft border-0 overflow-hidden">
+                      <CardHeader className="bg-gradient-to-br from-[#E3F2FD] to-[#BBDEFB]">
+                        <CardTitle className="text-[#2C1810] text-lg font-serif">
                           {selectedCourseId ? `${selectedCourse?.name} Stats` : "Quick Stats"}
                         </CardTitle>
                       </CardHeader>
-                      <CardContent className="space-y-4">
+                      <CardContent className="p-6 space-y-5">
                         <div className="flex justify-between items-center">
-                          <span className="text-slate-400">Files</span>
-                          <span className="text-2xl font-bold text-white">{currentFiles.length}</span>
+                          <span className="text-[#8B7355]">Files</span>
+                          <span className="text-3xl font-bold text-[#2C1810] font-serif">{currentFiles.length}</span>
                         </div>
                         {!selectedCourseId && (
                           <div className="flex justify-between items-center">
-                            <span className="text-slate-400">Courses</span>
-                            <span className="text-2xl font-bold text-white">{courses.length}</span>
+                            <span className="text-[#8B7355]">Courses</span>
+                            <span className="text-3xl font-bold text-[#2C1810] font-serif">{courses.length}</span>
                           </div>
                         )}
                         <div className="flex justify-between items-center">
-                          <span className="text-slate-400">Flashcards</span>
-                          <span className="text-2xl font-bold text-amber-400">
+                          <span className="text-[#8B7355]">Flashcards</span>
+                          <span className="text-3xl font-bold text-[#7CB342] font-serif">
                             {currentFlashcards.length}
                           </span>
                         </div>
                         <div className="flex justify-between items-center">
-                          <span className="text-slate-400">Mastered</span>
-                          <span className="text-2xl font-bold text-emerald-400">
+                          <span className="text-[#8B7355]">Mastered</span>
+                          <span className="text-3xl font-bold text-[#FFB74D] font-serif">
                             {currentFlashcards.filter((f) => f.mastered).length}
                           </span>
                         </div>
@@ -1516,18 +1493,18 @@ export default function DashboardPage() {
                     </Card>
 
                     {currentFlashcards.length > 0 && (
-                      <Card className="bg-slate-800/50 border-slate-700">
-                        <CardHeader>
-                          <CardTitle className="text-white text-lg">Study</CardTitle>
+                      <Card className="bg-white rounded-3xl shadow-soft border-0 overflow-hidden">
+                        <CardHeader className="bg-gradient-to-br from-[#E0F2F1] to-[#B2DFDB]">
+                          <CardTitle className="text-[#2C1810] text-lg font-serif">Study</CardTitle>
                         </CardHeader>
-                        <CardContent className="space-y-3">
+                        <CardContent className="p-6 space-y-4">
                           <Button
                             onClick={() => openStudyModal(selectedCourseId ? "course" : "all", selectedCourseId)}
-                            className="w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-slate-900 font-semibold"
+                            className="w-full rounded-2xl h-12 bg-[#7CB342] hover:bg-[#689F38] text-white font-semibold shadow-soft transition-all hover:shadow-soft-lg hover:-translate-y-0.5"
                           >
                             🧠 Smart Study
                           </Button>
-                          <p className="text-xs text-slate-500 text-center">
+                          <p className="text-xs text-[#8B7355] text-center">
                             Prioritizes weak cards & due for review
                           </p>
                         </CardContent>
@@ -1536,32 +1513,32 @@ export default function DashboardPage() {
 
                     {/* Progress - context aware */}
                     {currentStats?.total > 0 && currentStats.mastery.percentage > 0 && (
-                      <Card className="bg-slate-800/50 border-slate-700">
-                        <CardHeader>
-                          <CardTitle className="text-white text-lg">
+                      <Card className="bg-white rounded-3xl shadow-soft border-0 overflow-hidden">
+                        <CardHeader className="bg-gradient-to-br from-[#FCE4EC] to-[#F8BBD9]">
+                          <CardTitle className="text-[#2C1810] text-lg font-serif">
                             {selectedCourseId ? "Course Progress" : "Overall Progress"}
                           </CardTitle>
                         </CardHeader>
-                        <CardContent className="space-y-3">
+                        <CardContent className="p-6 space-y-4">
                           <div className="text-center">
                             <span
-                              className="text-4xl font-bold"
+                              className="text-5xl font-bold font-serif"
                               style={{ color: currentStats.mastery.color }}
                             >
                               {currentStats.mastery.percentage}%
                             </span>
-                            <p className="text-sm text-slate-400 mt-1">Mastery</p>
+                            <p className="text-sm text-[#8B7355] mt-1">Mastery</p>
                           </div>
-                          <div className="w-full h-3 bg-slate-700 rounded-full overflow-hidden">
+                          <div className="w-full h-3 bg-[#EBE4D6] rounded-full overflow-hidden">
                             <div
-                              className="h-full transition-all duration-500"
+                              className="h-full transition-all duration-500 rounded-full"
                               style={{
                                 width: `${currentStats.mastery.percentage}%`,
                                 backgroundColor: currentStats.mastery.color,
                               }}
                             />
                           </div>
-                          <div className="flex justify-between text-xs text-slate-400">
+                          <div className="flex justify-between text-xs text-[#8B7355]">
                             <span>{currentStats.mastered} mastered</span>
                             <span>{currentStats.total - currentStats.mastered} remaining</span>
                           </div>

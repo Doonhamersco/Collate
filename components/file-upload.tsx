@@ -166,24 +166,24 @@ export function FileUpload({ userId, courseId }: FileUploadProps) {
       <div
         {...getRootProps()}
         className={`
-          border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all
+          border-2 border-dashed rounded-3xl p-10 text-center cursor-pointer transition-all duration-300
           ${
             isDragActive
-              ? "border-amber-500 bg-amber-500/10"
-              : "border-slate-600 hover:border-slate-500 hover:bg-slate-700/30"
+              ? "border-[#7CB342] bg-[#7CB342]/5 scale-[1.02]"
+              : "border-[#D7CFC0] hover:border-[#8B7355] hover:bg-[#F5F1E8]"
           }
           ${uploading ? "pointer-events-none opacity-50" : ""}
         `}
       >
         <input {...getInputProps()} />
-        <div className="flex flex-col items-center gap-3">
+        <div className="flex flex-col items-center gap-4">
           <div
-            className={`w-16 h-16 rounded-full flex items-center justify-center transition-colors ${
-              isDragActive ? "bg-amber-500/20" : "bg-slate-700"
+            className={`w-20 h-20 rounded-2xl flex items-center justify-center transition-all duration-300 ${
+              isDragActive ? "bg-[#7CB342]/20 scale-110" : "bg-[#EBE4D6]"
             }`}
           >
             <svg
-              className={`w-8 h-8 ${isDragActive ? "text-amber-400" : "text-slate-400"}`}
+              className={`w-10 h-10 transition-colors ${isDragActive ? "text-[#7CB342]" : "text-[#8B7355]"}`}
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -191,31 +191,48 @@ export function FileUpload({ userId, courseId }: FileUploadProps) {
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                strokeWidth={2}
+                strokeWidth={1.5}
                 d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
               />
             </svg>
           </div>
           {isDragActive ? (
-            <p className="text-amber-400 font-medium">Drop the file here...</p>
+            <p className="text-[#7CB342] font-semibold text-lg">Drop the file here...</p>
           ) : (
             <>
-              <p className="text-white font-medium">
-                Drag & drop a file here, or click to select
-              </p>
-              <p className="text-sm text-slate-400">PDF, DOCX, PPTX • max 50MB</p>
+              <div>
+                <p className="text-[#2C1810] font-semibold text-lg mb-1">
+                  Drag & drop a file here
+                </p>
+                <p className="text-[#8B7355]">or click to browse</p>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="px-3 py-1.5 rounded-full bg-[#FFF8E1] text-[#8B7355] text-sm font-medium">
+                  PDF
+                </span>
+                <span className="px-3 py-1.5 rounded-full bg-[#E8F5E9] text-[#689F38] text-sm font-medium">
+                  DOCX
+                </span>
+                <span className="px-3 py-1.5 rounded-full bg-[#E3F2FD] text-[#1976D2] text-sm font-medium">
+                  PPTX
+                </span>
+                <span className="text-[#8B7355] text-sm">max 50MB</span>
+              </div>
             </>
           )}
         </div>
       </div>
 
       {uploading && (
-        <div className="space-y-2">
+        <div className="space-y-3 p-4 rounded-2xl bg-[#F5F1E8]">
           <div className="flex justify-between text-sm">
-            <span className="text-slate-300 truncate max-w-[200px]">{currentFile}</span>
-            <span className="text-slate-400">{Math.round(progress)}%</span>
+            <span className="text-[#4A3426] font-medium truncate max-w-[200px]">{currentFile}</span>
+            <span className="text-[#7CB342] font-semibold">{Math.round(progress)}%</span>
           </div>
-          <Progress value={progress} className="h-2 bg-slate-700" />
+          <Progress value={progress} className="h-2 bg-[#EBE4D6]" />
+          <p className="text-xs text-[#8B7355] text-center">
+            {progress < 100 ? "Uploading..." : "Processing file..."}
+          </p>
         </div>
       )}
     </div>

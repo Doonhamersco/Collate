@@ -168,8 +168,8 @@ export function FlashcardViewer({
           cardId: currentCard.id,
           rating,
           timeSpentMs: timeSpent,
-          fileId: currentCard.fileId,
-          fileName: currentCard.fileName,
+          fileId: currentCard.fileId || "",
+          fileName: currentCard.fileName || "Manual Card",
         },
       ]);
 
@@ -257,10 +257,10 @@ export function FlashcardViewer({
   // Empty flashcards
   if (flashcards.length === 0) {
     return (
-      <div className="text-center py-16">
-        <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-slate-700 flex items-center justify-center">
+      <div className="text-center py-16 animate-fade-in">
+        <div className="w-24 h-24 mx-auto mb-6 rounded-3xl bg-[#EBE4D6] flex items-center justify-center">
           <svg
-            className="w-10 h-10 text-slate-500"
+            className="w-12 h-12 text-[#8B7355]"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -268,18 +268,18 @@ export function FlashcardViewer({
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
-              strokeWidth={2}
+              strokeWidth={1.5}
               d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
             />
           </svg>
         </div>
-        <h2 className="text-xl font-semibold text-white mb-2">No Flashcards Available</h2>
-        <p className="text-slate-400 mb-6">
+        <h2 className="text-2xl font-serif font-bold text-[#2C1810] mb-2">No Flashcards Available</h2>
+        <p className="text-[#8B7355] mb-6">
           All cards may be mastered or there are no flashcards to study.
         </p>
         <Button
           onClick={onClose}
-          className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-slate-900 font-semibold"
+          className="rounded-full px-8 h-12 bg-[#7CB342] hover:bg-[#689F38] text-white font-semibold shadow-soft"
         >
           Go Back
         </Button>
@@ -306,15 +306,15 @@ export function FlashcardViewer({
       setTimeout(handleEndSession, 0);
       return (
         <div className="text-center py-16">
-          <p className="text-slate-400">Completing session...</p>
+          <p className="text-[#8B7355]">Completing session...</p>
         </div>
       );
     }
     return (
-      <div className="text-center py-16">
-        <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-slate-700 flex items-center justify-center">
+      <div className="text-center py-16 animate-fade-in">
+        <div className="w-24 h-24 mx-auto mb-6 rounded-3xl bg-[#EBE4D6] flex items-center justify-center">
           <svg
-            className="w-10 h-10 text-slate-500"
+            className="w-12 h-12 text-[#8B7355]"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -322,18 +322,18 @@ export function FlashcardViewer({
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
-              strokeWidth={2}
+              strokeWidth={1.5}
               d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
             />
           </svg>
         </div>
-        <h2 className="text-xl font-semibold text-white mb-2">No Cards to Study</h2>
-        <p className="text-slate-400 mb-6">
+        <h2 className="text-2xl font-serif font-bold text-[#2C1810] mb-2">No Cards to Study</h2>
+        <p className="text-[#8B7355] mb-6">
           All cards may be mastered or filtered out.
         </p>
         <Button
           onClick={onClose}
-          className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-slate-900 font-semibold"
+          className="rounded-full px-8 h-12 bg-[#7CB342] hover:bg-[#689F38] text-white font-semibold shadow-soft"
         >
           Go Back
         </Button>
@@ -344,15 +344,15 @@ export function FlashcardViewer({
   // Show all cards view
   if (showAll) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-6 animate-fade-in">
         <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-bold text-white">
+          <h2 className="text-2xl font-serif font-bold text-[#2C1810]">
             All Flashcards ({flashcards.length})
           </h2>
           <Button
             variant="outline"
             onClick={() => setShowAll(false)}
-            className="border-slate-600 text-slate-300 hover:bg-slate-700 hover:text-white"
+            className="rounded-full border-[#D7CFC0] text-[#4A3426] hover:bg-[#EBE4D6]"
           >
             Study Mode
           </Button>
@@ -361,39 +361,42 @@ export function FlashcardViewer({
           {flashcards.map((card, index) => (
             <div
               key={card.id}
-              className="p-6 rounded-xl bg-slate-800/50 border border-slate-700"
+              className="p-6 rounded-3xl bg-white shadow-soft border-0"
             >
               <div className="flex items-start gap-4">
-                <span className="flex-shrink-0 w-8 h-8 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center text-sm font-medium">
+                <span className="flex-shrink-0 w-10 h-10 rounded-xl bg-[#7CB342]/10 text-[#689F38] flex items-center justify-center text-sm font-semibold">
                   {index + 1}
                 </span>
-                <div className="flex-1 space-y-3">
+                <div className="flex-1 space-y-4">
                   <div>
-                    <span className="text-xs uppercase tracking-wider text-slate-500 mb-1 block">
+                    <span className="text-xs uppercase tracking-wider text-[#8B7355] mb-1 block font-medium">
                       Question
                     </span>
-                    <p className="text-white">{card.question}</p>
+                    <p className="text-[#2C1810] font-medium">{card.question}</p>
                   </div>
                   <div>
-                    <span className="text-xs uppercase tracking-wider text-slate-500 mb-1 block">
+                    <span className="text-xs uppercase tracking-wider text-[#8B7355] mb-1 block font-medium">
                       Answer
                     </span>
-                    <p className="text-slate-300">{card.answer}</p>
+                    <p className="text-[#4A3426]">{card.answer}</p>
                   </div>
                   <div className="flex items-center justify-between pt-2">
-                    <span className="text-xs text-slate-500">
-                      From: {card.fileName}
+                    <span className="text-xs text-[#8B7355]">
+                      From: {card.fileName || "Manual Card"}
                     </span>
                     <div className="flex items-center gap-2">
                       {card.mastered && (
-                        <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400">
+                        <span className="text-xs px-3 py-1 rounded-full bg-[#E8F5E9] text-[#689F38] font-medium">
                           🏆 Mastered
                         </span>
                       )}
                       {card.latestRating !== null && (
                         <span 
-                          className="text-xs flex items-center gap-1"
-                          style={{ color: getRatingColor(card.latestRating) }}
+                          className="text-xs flex items-center gap-1 px-3 py-1 rounded-full font-medium"
+                          style={{ 
+                            color: getRatingColor(card.latestRating),
+                            backgroundColor: `${getRatingColor(card.latestRating)}15`
+                          }}
                         >
                           {getRatingEmoji(card.latestRating)} {card.latestRating}/5
                         </span>
@@ -412,15 +415,15 @@ export function FlashcardViewer({
   // Main study view
   return (
     <div
-      className="space-y-6 outline-none"
+      className="space-y-6 outline-none animate-fade-in"
       tabIndex={0}
       onKeyDown={handleKeyDown}
     >
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-white">Study Session</h2>
+        <h2 className="text-2xl font-serif font-bold text-[#2C1810]">Study Session</h2>
         <div className="flex items-center gap-3">
-          <span className="text-sm text-slate-400 flex items-center gap-1">
+          <span className="text-sm text-[#8B7355] flex items-center gap-1.5 bg-[#F5F1E8] px-4 py-2 rounded-full">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
@@ -429,14 +432,14 @@ export function FlashcardViewer({
           <Button
             variant="outline"
             onClick={() => setShowAll(true)}
-            className="border-slate-600 text-slate-300 hover:bg-slate-700 hover:text-white"
+            className="rounded-full border-[#D7CFC0] text-[#4A3426] hover:bg-[#EBE4D6]"
           >
             View All
           </Button>
           <Button
             variant="outline"
             onClick={handleEndSession}
-            className="border-slate-600 text-slate-300 hover:bg-slate-700 hover:text-white"
+            className="rounded-full border-[#D7CFC0] text-[#4A3426] hover:bg-[#EBE4D6]"
           >
             End Session
           </Button>
@@ -444,36 +447,36 @@ export function FlashcardViewer({
       </div>
 
       {/* Session Stats Bar */}
-      <div className="flex items-center gap-4 p-3 rounded-lg bg-slate-800/50 border border-slate-700">
+      <div className="flex items-center gap-4 p-4 rounded-2xl bg-white shadow-soft">
         <div className="flex items-center gap-2">
-          <span className="text-sm text-slate-400">Studied:</span>
-          <span className="text-sm font-medium text-white">{cardsStudied}</span>
+          <span className="text-sm text-[#8B7355]">Studied:</span>
+          <span className="text-sm font-semibold text-[#2C1810]">{cardsStudied}</span>
         </div>
         {cardsMastered > 0 && (
           <div className="flex items-center gap-2">
-            <span className="text-sm text-emerald-400">🏆 Mastered:</span>
-            <span className="text-sm font-medium text-emerald-400">{cardsMastered}</span>
+            <span className="text-sm text-[#7CB342]">🏆 Mastered:</span>
+            <span className="text-sm font-semibold text-[#7CB342]">{cardsMastered}</span>
           </div>
         )}
         {cardsReshuffled > 0 && (
           <div className="flex items-center gap-2">
-            <span className="text-sm text-amber-400">🔄 Reviewing:</span>
-            <span className="text-sm font-medium text-amber-400">{cardsReshuffled}</span>
+            <span className="text-sm text-[#FFB74D]">🔄 Reviewing:</span>
+            <span className="text-sm font-semibold text-[#FFB74D]">{cardsReshuffled}</span>
           </div>
         )}
       </div>
 
       {/* Progress */}
-      <div className="flex items-center gap-3">
-        <div className="flex-1 h-2 bg-slate-700 rounded-full overflow-hidden">
+      <div className="flex items-center gap-4">
+        <div className="flex-1 h-3 bg-[#EBE4D6] rounded-full overflow-hidden">
           <div
-            className="h-full bg-gradient-to-r from-amber-500 to-orange-500 transition-all duration-300"
+            className="h-full bg-[#7CB342] transition-all duration-300 rounded-full"
             style={{
               width: `${((currentIndex + 1) / studyQueue.length) * 100}%`,
             }}
           />
         </div>
-        <span className="text-sm text-slate-400 tabular-nums">
+        <span className="text-sm text-[#8B7355] tabular-nums font-medium">
           {currentIndex + 1} / {studyQueue.length}
         </span>
       </div>
@@ -483,7 +486,7 @@ export function FlashcardViewer({
         <div
           onClick={() => !isFlipped && setIsFlipped(true)}
           className={`
-            relative w-full min-h-[300px] cursor-pointer transition-transform duration-500 transform-style-preserve-3d
+            relative w-full min-h-[350px] cursor-pointer transition-transform duration-500 transform-style-preserve-3d
             ${isFlipped ? "rotate-y-180" : ""}
           `}
           style={{
@@ -493,19 +496,19 @@ export function FlashcardViewer({
         >
           {/* Front (Question) */}
           <div
-            className="absolute inset-0 p-8 rounded-2xl bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-700 flex flex-col backface-hidden"
+            className="absolute inset-0 p-8 rounded-3xl bg-white shadow-soft-lg flex flex-col backface-hidden"
             style={{ backfaceVisibility: "hidden" }}
           >
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-2">
-                <span className="text-xs uppercase tracking-wider text-amber-400">
+                <span className="text-xs uppercase tracking-wider text-[#7CB342] font-semibold">
                   Question
                 </span>
                 {/* Source badge */}
-                <span className={`text-xs px-2 py-0.5 rounded-full ${
+                <span className={`text-xs px-3 py-1 rounded-full font-medium ${
                   currentCard.source === "manual" 
-                    ? "bg-purple-500/20 text-purple-400" 
-                    : "bg-blue-500/20 text-blue-400"
+                    ? "bg-[#F3E5F5] text-[#9C27B0]" 
+                    : "bg-[#E3F2FD] text-[#1976D2]"
                 }`}>
                   {currentCard.source === "manual" ? "✏️ Manual" : "🤖 AI"}
                   {currentCard.isEdited && " • Edited"}
@@ -513,21 +516,21 @@ export function FlashcardViewer({
               </div>
               <div className="flex items-center gap-2">
                 {currentCard.mastered && (
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400">
+                  <span className="text-xs px-3 py-1 rounded-full bg-[#E8F5E9] text-[#689F38] font-medium">
                     🏆 Mastered
                   </span>
                 )}
                 {currentCard.latestRating !== null && (
                   <span 
-                    className="text-xs flex items-center gap-1 px-2 py-1 rounded-full"
+                    className="text-xs flex items-center gap-1 px-3 py-1 rounded-full font-medium"
                     style={{ 
                       color: getRatingColor(currentCard.latestRating),
-                      backgroundColor: `${getRatingColor(currentCard.latestRating)}20`
+                      backgroundColor: `${getRatingColor(currentCard.latestRating)}15`
                     }}
                   >
                     {getRatingEmoji(currentCard.latestRating)} {currentCard.latestRating}/5
                     {currentCard.ratingCount > 1 && (
-                      <span className="text-slate-500 ml-1">
+                      <span className="text-[#8B7355] ml-1">
                         ({currentCard.ratingCount}x)
                       </span>
                     )}
@@ -536,11 +539,11 @@ export function FlashcardViewer({
               </div>
             </div>
             <div className="flex-1 flex items-center justify-center">
-              <p className="text-xl text-white text-center leading-relaxed">
+              <p className="text-2xl text-[#2C1810] text-center leading-relaxed font-medium">
                 {currentCard.question}
               </p>
             </div>
-            <div className="flex items-center justify-between text-sm text-slate-500 mt-4 pt-4 border-t border-slate-700">
+            <div className="flex items-center justify-between text-sm text-[#8B7355] mt-6 pt-4 border-t border-[#EBE4D6]">
               <span>Click or press Space to flip</span>
               {showSource && (
                 <span className="truncate max-w-[200px]">📄 {currentCard.fileName}</span>
@@ -550,14 +553,14 @@ export function FlashcardViewer({
 
           {/* Back (Answer) */}
           <div
-            className="absolute inset-0 p-8 rounded-2xl bg-gradient-to-br from-emerald-900/50 to-slate-900 border border-emerald-700/50 flex flex-col backface-hidden rotate-y-180"
+            className="absolute inset-0 p-8 rounded-3xl bg-gradient-to-br from-[#E8F5E9] to-[#C8E6C9] shadow-soft-lg flex flex-col backface-hidden rotate-y-180"
             style={{
               backfaceVisibility: "hidden",
               transform: "rotateY(180deg)",
             }}
           >
-            <div className="flex items-center justify-between mb-4">
-              <span className="text-xs uppercase tracking-wider text-emerald-400">
+            <div className="flex items-center justify-between mb-6">
+              <span className="text-xs uppercase tracking-wider text-[#689F38] font-semibold">
                 Answer
               </span>
               {/* Edit/Delete buttons */}
@@ -568,7 +571,7 @@ export function FlashcardViewer({
                       e.stopPropagation();
                       onEditFlashcard(currentCard);
                     }}
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 transition-colors"
+                    className="p-2 rounded-xl text-[#4A3426] hover:text-[#2C1810] hover:bg-white/50 transition-colors"
                     title="Edit flashcard"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -582,7 +585,7 @@ export function FlashcardViewer({
                       e.stopPropagation();
                       onDeleteFlashcard(currentCard.id, currentCard.question);
                     }}
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                    className="p-2 rounded-xl text-[#4A3426] hover:text-[#E57373] hover:bg-[#E57373]/10 transition-colors"
                     title="Delete flashcard"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -593,12 +596,12 @@ export function FlashcardViewer({
               </div>
             </div>
             <div className="flex-1 flex items-center justify-center">
-              <p className="text-xl text-white text-center leading-relaxed">
+              <p className="text-2xl text-[#2C1810] text-center leading-relaxed font-medium">
                 {currentCard.answer}
               </p>
             </div>
             {showSource && (
-              <div className="text-xs text-slate-500 mt-2 text-center">
+              <div className="text-xs text-[#689F38] mt-4 text-center">
                 📄 {currentCard.fileName}
               </div>
             )}
@@ -608,9 +611,9 @@ export function FlashcardViewer({
 
       {/* Rating buttons (shown when flipped) */}
       {isFlipped && onRate && (
-        <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
+        <div className="animate-slide-up">
           <RatingButtons onRate={handleRate} disabled={isRating} />
-          <p className="text-center text-xs text-slate-500 mt-2">
+          <p className="text-center text-xs text-[#8B7355] mt-3">
             Press 1-5 to rate quickly • Low ratings (1-2) will repeat this session
           </p>
         </div>
@@ -623,7 +626,7 @@ export function FlashcardViewer({
             variant="outline"
             size="lg"
             onClick={goToPrevious}
-            className="border-slate-600 text-slate-300 hover:bg-slate-700 hover:text-white"
+            className="rounded-full border-[#D7CFC0] text-[#4A3426] hover:bg-[#EBE4D6] h-12 px-6"
           >
             <svg
               className="w-5 h-5 mr-2"
@@ -643,7 +646,7 @@ export function FlashcardViewer({
           <Button
             size="lg"
             onClick={() => setIsFlipped(true)}
-            className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-slate-900 font-semibold"
+            className="rounded-full bg-[#7CB342] hover:bg-[#689F38] text-white font-semibold h-12 px-8 shadow-soft"
           >
             Flip Card
             <svg
@@ -664,7 +667,7 @@ export function FlashcardViewer({
             variant="outline"
             size="lg"
             onClick={goToNext}
-            className="border-slate-600 text-slate-300 hover:bg-slate-700 hover:text-white"
+            className="rounded-full border-[#D7CFC0] text-[#4A3426] hover:bg-[#EBE4D6] h-12 px-6"
           >
             Skip
             <svg
@@ -684,7 +687,7 @@ export function FlashcardViewer({
         </div>
       )}
 
-      <p className="text-center text-sm text-slate-500">
+      <p className="text-center text-sm text-[#8B7355]">
         {isFlipped 
           ? "Rate your confidence, then continue" 
           : "Use arrow keys to navigate, Space to flip, Esc to end"

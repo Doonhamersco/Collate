@@ -15,6 +15,12 @@ interface FileListProps {
   flashcardCounts: Record<string, number>;
 }
 
+const FILE_TYPE_STYLES = {
+  pdf: { bg: "bg-[#FFCCBC]/30", icon: "text-[#E57373]", label: "PDF" },
+  docx: { bg: "bg-[#BBDEFB]/30", icon: "text-[#64B5F6]", label: "DOCX" },
+  pptx: { bg: "bg-[#FFE0B2]/30", icon: "text-[#FFB74D]", label: "PPTX" },
+};
+
 export function FileList({
   files,
   generating,
@@ -55,10 +61,10 @@ export function FileList({
 
   if (files.length === 0) {
     return (
-      <div className="text-center py-8">
-        <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-slate-700 flex items-center justify-center">
+      <div className="text-center py-12">
+        <div className="w-20 h-20 mx-auto mb-5 rounded-2xl bg-[#EBE4D6] flex items-center justify-center">
           <svg
-            className="w-8 h-8 text-slate-500"
+            className="w-10 h-10 text-[#8B7355]"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -66,14 +72,14 @@ export function FileList({
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
-              strokeWidth={2}
+              strokeWidth={1.5}
               d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
             />
           </svg>
         </div>
-        <p className="text-slate-400">No files uploaded yet</p>
-        <p className="text-sm text-slate-500 mt-1">
-          Upload a PDF to get started
+        <p className="text-[#4A3426] font-semibold text-lg">No files uploaded yet</p>
+        <p className="text-sm text-[#8B7355] mt-1">
+          Upload a PDF, DOCX, or PPTX to get started
         </p>
       </div>
     );
@@ -89,13 +95,13 @@ export function FileList({
     switch (status) {
       case "uploading":
         return (
-          <span className="px-2 py-1 text-xs rounded-full bg-blue-500/20 text-blue-400">
+          <span className="px-3 py-1 text-xs rounded-full bg-[#E3F2FD] text-[#1976D2] font-medium">
             Uploading
           </span>
         );
       case "processing":
         return (
-          <span className="px-2 py-1 text-xs rounded-full bg-amber-500/20 text-amber-400 flex items-center gap-1">
+          <span className="px-3 py-1 text-xs rounded-full bg-[#FFF8E1] text-[#F9A825] font-medium flex items-center gap-1.5">
             <svg className="w-3 h-3 animate-spin" viewBox="0 0 24 24">
               <circle
                 className="opacity-25"
@@ -117,17 +123,29 @@ export function FileList({
         );
       case "ready":
         return (
-          <span className="px-2 py-1 text-xs rounded-full bg-emerald-500/20 text-emerald-400">
+          <span className="px-3 py-1 text-xs rounded-full bg-[#E8F5E9] text-[#689F38] font-medium">
             Ready
           </span>
         );
       case "failed":
         return (
-          <span className="px-2 py-1 text-xs rounded-full bg-red-500/20 text-red-400">
+          <span className="px-3 py-1 text-xs rounded-full bg-[#FFEBEE] text-[#E57373] font-medium">
             Failed
           </span>
         );
     }
+  };
+
+  const getFileIcon = (fileType: string) => {
+    const style = FILE_TYPE_STYLES[fileType as keyof typeof FILE_TYPE_STYLES] || FILE_TYPE_STYLES.pdf;
+    
+    return (
+      <div className={`w-12 h-12 rounded-xl ${style.bg} flex items-center justify-center flex-shrink-0`}>
+        <svg className={`w-6 h-6 ${style.icon}`} fill="currentColor" viewBox="0 0 24 24">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 1.5L18.5 9H13V3.5zM6 20V4h5v7h7v9H6z" />
+        </svg>
+      </div>
+    );
   };
 
   return (
@@ -140,38 +158,29 @@ export function FileList({
         return (
           <div
             key={file.id}
-            className="p-4 rounded-lg bg-slate-900/50 border border-slate-700 hover:border-slate-600 transition-colors"
+            className="p-4 rounded-2xl bg-[#F5F1E8] hover:bg-[#EBE4D6] transition-all duration-200 group"
           >
-            <div className="flex items-start gap-3">
-              {/* PDF Icon */}
-              <div className="w-10 h-10 rounded-lg bg-red-500/20 flex items-center justify-center flex-shrink-0">
-                <svg
-                  className="w-5 h-5 text-red-400"
-                  fill="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 1.5L18.5 9H13V3.5zM6 20V4h5v7h7v9H6z" />
-                  <path d="M8.5 13.5c0-.83.67-1.5 1.5-1.5.39 0 .74.15 1.01.39.27-.24.62-.39 1.01-.39.83 0 1.5.67 1.5 1.5 0 .47-.22.89-.56 1.16l-1.95 1.55-1.95-1.55c-.34-.27-.56-.69-.56-1.16z" />
-                </svg>
-              </div>
+            <div className="flex items-start gap-4">
+              {/* File Icon */}
+              {getFileIcon(file.fileType)}
 
               {/* File info */}
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   {isEditing ? (
                     <div className="flex items-center gap-2 flex-1">
                       <Input
                         value={editName}
                         onChange={(e) => setEditName(e.target.value)}
                         onKeyDown={(e) => handleKeyDown(e, file.id)}
-                        className="h-8 bg-slate-800 border-slate-600 text-white text-sm"
+                        className="h-9 rounded-xl border-[#D7CFC0] focus:border-[#7CB342] focus:ring-[#7CB342]/20 text-[#2C1810]"
                         autoFocus
                       />
                       <Button
                         size="sm"
                         variant="ghost"
                         onClick={() => saveEdit(file.id)}
-                        className="h-8 px-2 text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10"
+                        className="h-9 px-2 rounded-xl text-[#7CB342] hover:text-[#689F38] hover:bg-[#7CB342]/10"
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -181,7 +190,7 @@ export function FileList({
                         size="sm"
                         variant="ghost"
                         onClick={cancelEdit}
-                        className="h-8 px-2 text-slate-400 hover:text-slate-300 hover:bg-slate-700"
+                        className="h-9 px-2 rounded-xl text-[#8B7355] hover:text-[#4A3426] hover:bg-[#D7CFC0]"
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -190,10 +199,10 @@ export function FileList({
                     </div>
                   ) : (
                     <>
-                      <h3 className="text-white font-medium truncate">{file.name}</h3>
+                      <h3 className="text-[#2C1810] font-semibold truncate">{file.name}</h3>
                       <button
                         onClick={() => startEditing(file)}
-                        className="p-1 text-slate-500 hover:text-slate-300 transition-colors"
+                        className="p-1.5 rounded-lg text-[#8B7355] hover:text-[#4A3426] hover:bg-white/50 transition-colors opacity-0 group-hover:opacity-100"
                         title="Rename file"
                       >
                         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -204,9 +213,9 @@ export function FileList({
                     </>
                   )}
                 </div>
-                <div className="flex items-center gap-3 mt-1 text-sm text-slate-400">
-                  <span>{formatSize(file.size)}</span>
-                  <span>•</span>
+                <div className="flex items-center gap-3 mt-1.5 text-sm text-[#8B7355]">
+                  <span className="font-medium">{formatSize(file.size)}</span>
+                  <span className="text-[#D7CFC0]">•</span>
                   <span>
                     {file.uploadedAt.toLocaleDateString("en-US", {
                       month: "short",
@@ -216,8 +225,8 @@ export function FileList({
                   </span>
                   {cardCount > 0 && (
                     <>
-                      <span>•</span>
-                      <span className="text-amber-400">{cardCount} flashcards</span>
+                      <span className="text-[#D7CFC0]">•</span>
+                      <span className="text-[#7CB342] font-medium">{cardCount} flashcards</span>
                     </>
                   )}
                 </div>
@@ -232,10 +241,10 @@ export function FileList({
                         size="sm"
                         variant="outline"
                         onClick={() => onViewFlashcards(file.id)}
-                        className="border-slate-600 text-slate-300 hover:bg-slate-700 hover:text-white"
+                        className="rounded-xl border-[#D7CFC0] text-[#4A3426] hover:bg-white hover:border-[#7CB342] hover:text-[#689F38]"
                       >
                         <svg
-                          className="w-4 h-4 mr-1"
+                          className="w-4 h-4 mr-1.5"
                           fill="none"
                           stroke="currentColor"
                           viewBox="0 0 24 24"
@@ -260,11 +269,11 @@ export function FileList({
                       size="sm"
                       onClick={() => onGenerateFlashcards(file.id)}
                       disabled={isGenerating}
-                      className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-slate-900 font-medium"
+                      className="rounded-xl bg-[#7CB342] hover:bg-[#689F38] text-white font-medium shadow-soft"
                     >
                       {isGenerating ? (
                         <>
-                          <svg className="w-4 h-4 mr-1 animate-spin" viewBox="0 0 24 24">
+                          <svg className="w-4 h-4 mr-1.5 animate-spin" viewBox="0 0 24 24">
                             <circle
                               className="opacity-25"
                               cx="12"
@@ -285,7 +294,7 @@ export function FileList({
                       ) : (
                         <>
                           <svg
-                            className="w-4 h-4 mr-1"
+                            className="w-4 h-4 mr-1.5"
                             fill="none"
                             stroke="currentColor"
                             viewBox="0 0 24 24"
@@ -307,7 +316,7 @@ export function FileList({
                   size="sm"
                   variant="ghost"
                   onClick={() => onDeleteFile(file.id)}
-                  className="text-slate-400 hover:text-red-400 hover:bg-red-500/10"
+                  className="rounded-xl text-[#8B7355] hover:text-[#E57373] hover:bg-[#E57373]/10 opacity-0 group-hover:opacity-100 transition-all"
                 >
                   <svg
                     className="w-4 h-4"

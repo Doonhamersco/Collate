@@ -3,11 +3,11 @@
 import { useState } from "react";
 
 const RATING_CONFIG = [
-  { value: 1, emoji: "😫", label: "Didn't know", color: "#ef4444", bgColor: "rgba(239, 68, 68, 0.2)" },
-  { value: 2, emoji: "😕", label: "Struggled", color: "#f97316", bgColor: "rgba(249, 115, 22, 0.2)" },
-  { value: 3, emoji: "😐", label: "Okay", color: "#eab308", bgColor: "rgba(234, 179, 8, 0.2)" },
-  { value: 4, emoji: "😊", label: "Good", color: "#84cc16", bgColor: "rgba(132, 204, 22, 0.2)" },
-  { value: 5, emoji: "🎯", label: "Perfect", color: "#22c55e", bgColor: "rgba(34, 197, 94, 0.2)" },
+  { value: 1, emoji: "😫", label: "Didn't know", color: "#E57373", bgColor: "rgba(229, 115, 115, 0.15)" },
+  { value: 2, emoji: "😕", label: "Struggled", color: "#FFB74D", bgColor: "rgba(255, 183, 77, 0.15)" },
+  { value: 3, emoji: "😐", label: "Okay", color: "#FFF176", bgColor: "rgba(255, 241, 118, 0.15)" },
+  { value: 4, emoji: "😊", label: "Good", color: "#AED581", bgColor: "rgba(174, 213, 129, 0.15)" },
+  { value: 5, emoji: "🎯", label: "Perfect", color: "#7CB342", bgColor: "rgba(124, 179, 66, 0.15)" },
 ];
 
 interface RatingButtonsProps {
@@ -34,9 +34,9 @@ export function RatingButtons({ onRate, disabled }: RatingButtonsProps) {
   };
 
   return (
-    <div className="space-y-3">
-      <p className="text-center text-slate-400 text-sm">How well did you know this?</p>
-      <div className="flex justify-center gap-2">
+    <div className="space-y-4">
+      <p className="text-center text-[#8B7355] text-sm font-medium">How well did you know this?</p>
+      <div className="flex justify-center gap-3">
         {RATING_CONFIG.map((config) => {
           const isSelected = selectedRating === config.value;
           
@@ -47,24 +47,24 @@ export function RatingButtons({ onRate, disabled }: RatingButtonsProps) {
               disabled={disabled || isAnimating}
               className={`
                 flex flex-col items-center justify-center
-                w-16 h-20 rounded-xl
+                w-[72px] h-24 rounded-2xl
                 border-2 transition-all duration-200
                 ${isSelected 
-                  ? "scale-110 shadow-lg" 
-                  : "hover:scale-105 hover:shadow-md"
+                  ? "scale-110 shadow-soft-lg" 
+                  : "hover:scale-105 shadow-soft hover:shadow-soft-lg"
                 }
                 ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}
               `}
               style={{
-                backgroundColor: isSelected ? config.bgColor : "rgba(51, 65, 85, 0.5)",
-                borderColor: isSelected ? config.color : "rgba(71, 85, 105, 0.5)",
-                boxShadow: isSelected ? `0 0 20px ${config.bgColor}` : undefined,
+                backgroundColor: isSelected ? config.bgColor : "white",
+                borderColor: isSelected ? config.color : "#EBE4D6",
+                boxShadow: isSelected ? `0 8px 30px ${config.bgColor}` : undefined,
               }}
             >
-              <span className="text-2xl">{config.emoji}</span>
+              <span className="text-3xl">{config.emoji}</span>
               <span 
-                className="text-xs mt-1 font-medium"
-                style={{ color: isSelected ? config.color : "#94a3b8" }}
+                className="text-xs mt-1.5 font-semibold"
+                style={{ color: isSelected ? config.color : "#8B7355" }}
               >
                 {config.label}
               </span>
@@ -78,9 +78,9 @@ export function RatingButtons({ onRate, disabled }: RatingButtonsProps) {
 
 // Helper to get rating color
 export function getRatingColor(rating: number | null): string {
-  if (rating === null) return "#64748b";
+  if (rating === null) return "#8B7355";
   const config = RATING_CONFIG.find((r) => r.value === rating);
-  return config?.color || "#64748b";
+  return config?.color || "#8B7355";
 }
 
 // Helper to get rating emoji
@@ -96,4 +96,3 @@ export function formatRatingHistory(ratings: number[]): string {
   if (ratings.length === 1) return `Rated: ${ratings[0]}`;
   return ratings.map(String).join(" → ");
 }
-
