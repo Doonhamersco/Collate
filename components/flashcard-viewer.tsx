@@ -20,6 +20,8 @@ interface FlashcardViewerProps {
   onRate?: (cardId: string, rating: number, timeSpentMs: number) => Promise<void>;
   onClose: () => void;
   onSessionComplete?: (data: SessionSummaryData) => void;
+  onEditFlashcard?: (flashcard: Flashcard) => void;
+  onDeleteFlashcard?: (flashcardId: string, preview: string) => void;
 }
 
 export function FlashcardViewer({ 
@@ -27,7 +29,9 @@ export function FlashcardViewer({
   showSource = false,
   onRate,
   onClose,
-  onSessionComplete
+  onSessionComplete,
+  onEditFlashcard,
+  onDeleteFlashcard,
 }: FlashcardViewerProps) {
   // ALL HOOKS MUST BE AT THE TOP - before any early returns
   
@@ -493,9 +497,20 @@ export function FlashcardViewer({
             style={{ backfaceVisibility: "hidden" }}
           >
             <div className="flex items-center justify-between mb-4">
-              <span className="text-xs uppercase tracking-wider text-amber-400">
-                Question
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs uppercase tracking-wider text-amber-400">
+                  Question
+                </span>
+                {/* Source badge */}
+                <span className={`text-xs px-2 py-0.5 rounded-full ${
+                  currentCard.source === "manual" 
+                    ? "bg-purple-500/20 text-purple-400" 
+                    : "bg-blue-500/20 text-blue-400"
+                }`}>
+                  {currentCard.source === "manual" ? "✏️ Manual" : "🤖 AI"}
+                  {currentCard.isEdited && " • Edited"}
+                </span>
+              </div>
               <div className="flex items-center gap-2">
                 {currentCard.mastered && (
                   <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400">
@@ -541,9 +556,42 @@ export function FlashcardViewer({
               transform: "rotateY(180deg)",
             }}
           >
-            <span className="text-xs uppercase tracking-wider text-emerald-400 mb-4">
-              Answer
-            </span>
+            <div className="flex items-center justify-between mb-4">
+              <span className="text-xs uppercase tracking-wider text-emerald-400">
+                Answer
+              </span>
+              {/* Edit/Delete buttons */}
+              <div className="flex items-center gap-1">
+                {onEditFlashcard && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onEditFlashcard(currentCard);
+                    }}
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 transition-colors"
+                    title="Edit flashcard"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                    </svg>
+                  </button>
+                )}
+                {onDeleteFlashcard && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDeleteFlashcard(currentCard.id, currentCard.question);
+                    }}
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                    title="Delete flashcard"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+            </div>
             <div className="flex-1 flex items-center justify-center">
               <p className="text-xl text-white text-center leading-relaxed">
                 {currentCard.answer}
