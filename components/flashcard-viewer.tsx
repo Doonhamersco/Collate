@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { RatingButtons, getRatingEmoji, getRatingColor } from "@/components/rating-buttons";
 import { SessionSummary, type SessionSummaryData } from "@/components/session-summary";
@@ -55,6 +55,9 @@ export function FlashcardViewer({
   
   // Elapsed time for timer display - MOVED TO TOP
   const [elapsedTime, setElapsedTime] = useState(0);
+  
+  // Ref for the container to manage focus
+  const containerRef = useRef<HTMLDivElement>(null);
 
   // Sync study queue with flashcards prop
   useEffect(() => {
@@ -137,22 +140,25 @@ export function FlashcardViewer({
   // Get current card
   const currentCard = studyQueue[currentIndex];
 
-  // Navigation functions
-  const goToPrevious = () => {
+  // Navigation functions - wrapped in useCallback for stable references
+  const goToPrevious = useCallback(() => {
     setIsFlipped(false);
     setCurrentIndex((prev) => (prev > 0 ? prev - 1 : studyQueue.length - 1));
-  };
+  }, [studyQueue.length]);
 
-  const goToNext = () => {
+  const goToNext = useCallback(() => {
     setIsFlipped(false);
-    if (currentIndex < studyQueue.length - 1) {
-      setCurrentIndex(currentIndex + 1);
-    } else {
-      handleEndSession();
-    }
-  };
+    setCurrentIndex((prev) => {
+      if (prev < studyQueue.length - 1) {
+        return prev + 1;
+      } else {
+        handleEndSession();
+        return prev;
+      }
+    });
+  }, [studyQueue.length, handleEndSession]);
 
-  const handleRate = async (rating: number) => {
+  const handleRate = useCallback(async (rating: number) => {
     if (!onRate || isRating || !currentCard) return;
     
     const timeSpent = Date.now() - cardStartTime;
@@ -174,10 +180,13 @@ export function FlashcardViewer({
       ]);
 
       // Track unique cards studied
-      if (!studiedCardIds.has(currentCard.id)) {
-        setStudiedCardIds((prev) => new Set(prev).add(currentCard.id));
-        setCardsStudied((prev) => prev + 1);
-      }
+      setStudiedCardIds((prev) => {
+        if (!prev.has(currentCard.id)) {
+          setCardsStudied((c) => c + 1);
+          return new Set(prev).add(currentCard.id);
+        }
+        return prev;
+      });
 
       // Check for mastery (rating 5 three times in a row)
       if (rating === 5) {
@@ -208,37 +217,58 @@ export function FlashcardViewer({
         setIsFlipped(false);
         setIsRating(false);
         
-        if (currentIndex < studyQueue.length - 1) {
-          setCurrentIndex(currentIndex + 1);
-        } else {
-          handleEndSession();
-        }
+        setCurrentIndex((prev) => {
+          if (prev < studyQueue.length - 1) {
+            return prev + 1;
+          } else {
+            handleEndSession();
+            return prev;
+          }
+        });
       }, 300);
     } catch (error) {
       console.error("Failed to save rating:", error);
       setIsRating(false);
     }
-  };
+  }, [onRate, isRating, currentCard, cardStartTime, currentIndex, studyQueue.length, handleEndSession]);
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "ArrowLeft" && !isFlipped) goToPrevious();
-    if (e.key === "ArrowRight" && !isFlipped) goToNext();
-    if (e.key === " " || e.key === "Enter") {
-      e.preventDefault();
-      if (!isFlipped) {
-        setIsFlipped(true);
+  // Global keyboard event listener for study shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't trigger if user is typing in an input
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return;
       }
-    }
-    if (e.key === "Escape") {
-      handleEndSession();
-    }
-    if (isFlipped && onRate && !isRating) {
-      const num = parseInt(e.key);
-      if (num >= 1 && num <= 5) {
-        handleRate(num);
+      
+      if (e.key === "ArrowLeft" && !isFlipped) {
+        e.preventDefault();
+        goToPrevious();
       }
-    }
-  };
+      if (e.key === "ArrowRight" && !isFlipped) {
+        e.preventDefault();
+        goToNext();
+      }
+      if (e.key === " " || e.key === "Enter") {
+        e.preventDefault();
+        if (!isFlipped) {
+          setIsFlipped(true);
+        }
+      }
+      if (e.key === "Escape") {
+        handleEndSession();
+      }
+      if (isFlipped && onRate && !isRating) {
+        const num = parseInt(e.key);
+        if (num >= 1 && num <= 5) {
+          e.preventDefault();
+          handleRate(num);
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isFlipped, isRating, onRate, handleEndSession, goToPrevious, goToNext, handleRate]);
 
   const handleStudyAgain = () => {
     setSessionComplete(false);
@@ -415,9 +445,8 @@ export function FlashcardViewer({
   // Main study view
   return (
     <div
+      ref={containerRef}
       className="space-y-6 outline-none animate-fade-in"
-      tabIndex={0}
-      onKeyDown={handleKeyDown}
     >
       {/* Header */}
       <div className="flex items-center justify-between">

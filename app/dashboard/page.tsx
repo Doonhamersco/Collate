@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
 import { collection, query, orderBy, onSnapshot, deleteDoc, doc, writeBatch, serverTimestamp, updateDoc, setDoc, addDoc, Timestamp, getDocs, where } from "firebase/firestore";
@@ -334,6 +334,82 @@ export default function DashboardPage() {
 
     return () => unsubscribe();
   }, [user]);
+
+  // Subscribe to ratings collection for streak calculation
+  const [ratingDates, setRatingDates] = useState<Date[]>([]);
+  
+  useEffect(() => {
+    if (!user) return;
+
+    const ratingsRef = collection(db, "users", user.uid, "ratings");
+    const q = query(ratingsRef, orderBy("timestamp", "desc"));
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const dates: Date[] = [];
+      snapshot.forEach((doc) => {
+        const data = doc.data();
+        if (data.timestamp) {
+          dates.push(data.timestamp.toDate());
+        }
+      });
+      setRatingDates(dates);
+    });
+
+    return () => unsubscribe();
+  }, [user]);
+
+  // Calculate study streak
+  const studyStreak = useMemo(() => {
+    if (ratingDates.length === 0) return 0;
+
+    // Get unique dates (YYYY-MM-DD format)
+    const uniqueDates = [...new Set(
+      ratingDates.map(d => {
+        const date = new Date(d);
+        return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+      })
+    )].sort().reverse(); // Most recent first
+
+    if (uniqueDates.length === 0) return 0;
+
+    const today = new Date();
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = `${yesterday.getFullYear()}-${String(yesterday.getMonth() + 1).padStart(2, '0')}-${String(yesterday.getDate()).padStart(2, '0')}`;
+
+    // Streak must start from today or yesterday
+    if (uniqueDates[0] !== todayStr && uniqueDates[0] !== yesterdayStr) {
+      return 0;
+    }
+
+    let streak = 0;
+    let checkDate = new Date(uniqueDates[0]);
+
+    for (const dateStr of uniqueDates) {
+      const expectedStr = `${checkDate.getFullYear()}-${String(checkDate.getMonth() + 1).padStart(2, '0')}-${String(checkDate.getDate()).padStart(2, '0')}`;
+      
+      if (dateStr === expectedStr) {
+        streak++;
+        checkDate.setDate(checkDate.getDate() - 1);
+      } else {
+        break;
+      }
+    }
+
+    return streak;
+  }, [ratingDates]);
+
+  // Calculate cards due for review
+  const dueForReview = useMemo(() => {
+    const now = new Date();
+    return flashcards.filter(f => 
+      !f.mastered && 
+      f.nextReviewAt && 
+      new Date(f.nextReviewAt) <= now
+    );
+  }, [flashcards]);
 
   // Calculate course and deck stats
   const courseStats = useMemo(() => {
@@ -1044,6 +1120,17 @@ export default function DashboardPage() {
           <div className="flex items-center gap-4">
             <Button
               size="sm"
+              variant="ghost"
+              onClick={() => router.push("/analytics")}
+              className="rounded-full px-4 text-[#8B7355] hover:text-[#4A3426] hover:bg-[#EBE4D6]"
+            >
+              <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+              </svg>
+              Analytics
+            </Button>
+            <Button
+              size="sm"
               onClick={() => openFlashcardModal(selectedCourseId, selectedDeckId)}
               className="rounded-full px-5 bg-[#7CB342] hover:bg-[#689F38] text-white font-semibold shadow-soft transition-all hover:shadow-soft-lg hover:-translate-y-0.5"
             >
@@ -1666,6 +1753,30 @@ export default function DashboardPage() {
                       </CardContent>
                     </Card>
 
+                    {/* Study Streak */}
+                    <Card className="bg-white rounded-3xl shadow-soft border-0 overflow-hidden">
+                      <CardContent className="p-5">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#FF8A65] to-[#FF5722] flex items-center justify-center">
+                              <span className="text-2xl">🔥</span>
+                            </div>
+                            <div>
+                              <p className="text-sm text-[#8B7355]">Study Streak</p>
+                              <p className="text-2xl font-bold text-[#2C1810] font-serif">
+                                {studyStreak} {studyStreak === 1 ? "day" : "days"}
+                              </p>
+                            </div>
+                          </div>
+                          {studyStreak >= 5 && (
+                            <span className="text-xs px-2 py-1 rounded-full bg-[#FF5722]/10 text-[#FF5722] font-semibold">
+                              🎉 On fire!
+                            </span>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+
                     {currentFlashcards.length > 0 && (
                       <Card className="bg-white rounded-3xl shadow-soft border-0 overflow-hidden">
                         <CardHeader className="bg-gradient-to-br from-[#E0F2F1] to-[#B2DFDB]">
@@ -1681,6 +1792,41 @@ export default function DashboardPage() {
                           <p className="text-xs text-[#8B7355] text-center">
                             Prioritizes weak cards & due for review
                           </p>
+                          
+                          {/* Due for Review */}
+                          {(() => {
+                            const currentDue = selectedCourseId 
+                              ? dueForReview.filter(f => f.courseId === selectedCourseId)
+                              : dueForReview;
+                            
+                            if (currentDue.length === 0) return null;
+                            
+                            return (
+                              <div className="pt-3 border-t border-[#EBE4D6]">
+                                <button
+                                  onClick={() => {
+                                    // Start study session with only due cards
+                                    const sessionId = `session_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+                                    setStudySessionId(sessionId);
+                                    setStudyFlashcards(shuffleArray(currentDue));
+                                    setViewingFlashcards(true);
+                                  }}
+                                  className="w-full flex items-center justify-between p-3 rounded-xl bg-[#FFF3E0] hover:bg-[#FFE0B2] transition-colors group"
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-lg">⏰</span>
+                                    <span className="text-sm font-medium text-[#E65100]">Due for Review</span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-lg font-bold text-[#E65100]">{currentDue.length}</span>
+                                    <svg className="w-4 h-4 text-[#E65100] group-hover:translate-x-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                    </svg>
+                                  </div>
+                                </button>
+                              </div>
+                            );
+                          })()}
                         </CardContent>
                       </Card>
                     )}
